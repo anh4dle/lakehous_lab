@@ -9,17 +9,15 @@ STATE_FILE = Path("state.json")
 
 COUNTRIES = ["VN", "US", "SG", "JP", "KR"]
 
+
 # -------------------------
 # STATE MANAGEMENT
 # -------------------------
 def load_state():
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text())
-    return {
-        "customer_seq": 1000,
-        "order_seq": 10000,
-        "last_date": "2026-05-01"
-    }
+    return {"customer_seq": 1000, "order_seq": 10000, "last_date": "2026-05-01"}
+
 
 def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2))
@@ -31,9 +29,7 @@ def save_state(state):
 def random_time_in_day(base_date: date):
     """Generate a random timestamp inside a specific day"""
     start = datetime.combine(base_date, datetime.min.time())
-    return start + timedelta(
-        seconds=random.randint(0, 86400 - 1)
-    )
+    return start + timedelta(seconds=random.randint(0, 86400 - 1))
 
 
 def make_partition_path(prefix, base_date: date):
@@ -64,8 +60,8 @@ def generate_customers_for_day(state, base_date, n):
                 "name": f"User_{customer_id}",
                 "email": f"{customer_id.lower()}@mail.com",
                 "country": random.choice(COUNTRIES),
-                "created_at": event_time.isoformat()
-            }
+                "created_at": event_time.isoformat(),
+            },
         }
 
         customers.append(event)
@@ -100,8 +96,8 @@ def generate_orders_for_day(state, base_date, n):
                 "amount": round(random.uniform(10, 500), 2),
                 "status": random.choice(["CREATED", "PAID", "SHIPPED"]),
                 "items": random.randint(1, 5),
-                "created_at": event_time.isoformat()
-            }
+                "created_at": event_time.isoformat(),
+            },
         }
 
         orders.append(event)
@@ -139,7 +135,7 @@ def run_simulation(num_days=7):
 
         total_c += c
         total_o += o
-    state['last_date'] = current_day.strftime("%Y-%m-%d")
+    state["last_date"] = current_day.strftime("%Y-%m-%d")
     print("Showing state", state)
     save_state(state)
 
