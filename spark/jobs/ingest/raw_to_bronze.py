@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+import pandas as pd  
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     input_file_name,
@@ -15,17 +17,17 @@ BASE_INPUT_PATH = (
     "s3a://warehouse/raw/customers"  # ← Change if bucket name is different
 )
 TABLE_FULL_NAME = "iceberg.bronze.fact_customer_events"
-REGISTRY_TABLE = "iceberg.bronze.load_registry"
-WAREHOUSE_PATH = "/tmp/iceberg_warehouse"  # Local Iceberg warehouse
+REGISTRY_TABLE = "iceberg.metadata.ingestion_registry"
 # =========================================================
 
 
-def get_last_processed_date(spark) -> str:
+def get_last_processed_date(spark_client) -> str:
     """Retrieve last successful processed date"""
-    df = spark.sql(
+    df = spark_client.spark.sql(
         f"""
         SELECT COALESCE(MAX(processed_date), '1900-01-01') as last_date 
         FROM {REGISTRY_TABLE}
+        WHERE pipeline_name = 'customer_raw_to_bronze'
     """
     )
     return df.collect()[0]["last_date"]
@@ -33,12 +35,6 @@ def get_last_processed_date(spark) -> str:
 
 def read_new_data(spark, base_path: str, last_processed_date: str):
     """Read all data from a path into a DataFrame"""
-
-    # Generate list of dates to read (you can make this smarter)
-    from datetime import datetime, timedelta
-    import pandas as pd  # or use pure python
-
-    # Get dates that are not yet processed
     start_date = datetime.strptime(last_processed_date, "%Y-%m-%d")
     dates = (
         pd.date_range(start=start_date + timedelta(days=1), end=datetime.today())
@@ -89,8 +85,8 @@ def write_to_iceberg(df, table_name):
 def update_registry_table(spark, max_date: str, record_count: int):
     """Record successful load"""
     control_df = spark.createDataFrame(
-        [(max_date, datetime.now(), record_count, "SUCCESS")],
-        ["processed_date", "load_timestamp", "records_processed", "status"],
+        [("customer_raw_to_bronze", max_date, datetime.now(), "SUCCESS")],
+        ["pipeline_name", "processed_date", "load_timestamp", "status"],
     )
     control_df.writeTo(REGISTRY_TABLE).append()
 

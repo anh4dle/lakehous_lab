@@ -1,4 +1,4 @@
-CREATE TABLE iceberg.bronze.fact_customer_events (
+CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
     event_id        STRING,
     event_time      TIMESTAMP,
     customer        STRUCT<
@@ -15,7 +15,7 @@ USING iceberg
 PARTITIONED BY (days(event_time));
 
 
-CREATE TABLE iceberg.bronze.fact_orders_events (
+CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_orders_events (
     event_id        STRING,
     event_time      TIMESTAMP,
     order_detail    STRUCT<
@@ -32,7 +32,7 @@ CREATE TABLE iceberg.bronze.fact_orders_events (
 USING iceberg
 PARTITIONED BY (days(event_time));
 
-CREATE TABLE iceberg.silver.dim_customer (
+CREATE TABLE IF NOT EXISTS  iceberg.silver.dim_customer (
     customer_id      STRING,
     name             STRING,
     email            STRING,
@@ -46,7 +46,7 @@ CREATE TABLE iceberg.silver.dim_customer (
 USING iceberg
 PARTITIONED BY (_is_current);
 
-CREATE TABLE iceberg.silver.fact_orders (
+CREATE TABLE IF NOT EXISTS  iceberg.silver.fact_orders (
     event_id        STRING,
     event_time      TIMESTAMP,
     customer_id     STRING,
@@ -60,7 +60,7 @@ CREATE TABLE iceberg.silver.fact_orders (
 USING iceberg
 PARTITIONED BY (days(event_time));
 
-CREATE TABLE iceberg.gold.daily_orders_by_country (
+CREATE TABLE IF NOT EXISTS  iceberg.gold.daily_orders_by_country (
     report_date         DATE,
     country              STRING,
     order_count          BIGINT,
@@ -73,6 +73,7 @@ PARTITIONED BY (report_date);
 
 
  CREATE TABLE IF NOT EXISTS iceberg.metadata.ingestion_registry (
+    pipeline_name STRING,
     processed_date STRING,
     load_timestamp TIMESTAMP,
     status STRING
