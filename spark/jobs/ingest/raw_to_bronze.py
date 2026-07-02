@@ -12,9 +12,8 @@ from datetime import datetime
 from spark.spark_client import SparkClient
 from pyspark.sql.functions import lit
 
-# ========================= CONFIG =========================
 BASE_INPUT_PATH = (
-    "s3a://warehouse/raw/customers"  # ← Change if bucket name is different
+    "s3a://warehouse/raw/customers"  
 )
 TABLE_FULL_NAME = "iceberg.bronze.fact_customer_events"
 REGISTRY_TABLE = "iceberg.metadata.ingestion_registry"
@@ -33,7 +32,7 @@ def get_last_processed_date(spark_client) -> str:
     return df.collect()[0]["last_date"]
 
 
-def read_new_data(spark, base_path: str, last_processed_date: str):
+def read_new_data(spark_client, base_path: str, last_processed_date: str):
     """Read all data from a path into a DataFrame"""
     start_date = datetime.strptime(last_processed_date, "%Y-%m-%d")
     dates = (
@@ -43,12 +42,12 @@ def read_new_data(spark, base_path: str, last_processed_date: str):
     )
 
     if not dates:
-        return spark.createDataFrame([], schema="temp_schema")
+        return spark_client.spark.createDataFrame([], schema="temp_schema")
 
     paths = [f"{base_path}/dt={d}/customers_*.json" for d in dates]
 
     df_raw = (
-        spark.read.option("multiLine", "true").option("mode", "PERMISSIVE").json(paths)
+        spark_client.spark.read.option("multiLine", "true").option("mode", "PERMISSIVE").json(paths)
     )
 
     # Add ingestion metadata

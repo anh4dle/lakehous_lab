@@ -10,7 +10,14 @@ class SparkClient:
             # Iceberg
             .config(
                 "spark.jars.packages",
-                "org.apache.iceberg:iceberg-spark-runtime-4.1_2.13:1.11.0",
+                ",".join([
+                    "org.apache.iceberg:iceberg-spark-runtime-4.1_2.13:1.11.0",
+                    "org.apache.iceberg:iceberg-aws-bundle:1.11.0",
+                ])
+            )
+            .config(
+                "spark.sql.catalog.iceberg.io-impl",
+                "org.apache.iceberg.aws.s3.S3FileIO",
             )
             .config(
                 "spark.sql.extensions",
