@@ -1,14 +1,13 @@
 from datetime import datetime, timedelta
 import pandas as pd
-from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     input_file_name,
-    regexp_extract,
     col,
     current_timestamp,
     to_timestamp,
+    struct,
 )
-from datetime import datetime
+from pyspark.sql import DataFrame
 from spark.spark_client import SparkClient
 from pyspark.sql.functions import lit
 
@@ -30,12 +29,12 @@ def get_last_processed_date(spark_client) -> str:
     return df.collect()[0]["last_date"]
 
 
-def read_new_data(spark_client, base_path: str, last_processed_date: str):
+def read_new_data(spark_client, base_path: str, last_processed_date: datetime):
     """Read all data from a path into a DataFrame"""
-    start_date = datetime.strptime(last_processed_date, "%Y-%m-%d")
     dates = (
         pd.date_range(
-            start=start_date + timedelta(days=1), end=start_date + timedelta(days=1)
+            start=last_processed_date + timedelta(days=1),
+            end=last_processed_date + timedelta(days=1),
         )
         .strftime("%Y-%m-%d")
         .tolist()
@@ -50,12 +49,7 @@ def read_new_data(spark_client, base_path: str, last_processed_date: str):
         .option("mode", "PERMISSIVE")
         .json(paths)
     )
-    # path = "s3a://warehouse/raw/customers/dt=2026-05-02/customers_1782412380.json"
 
-    # df_raw =  spark_client.spark.read.option("multiline", "true").json(path)
-    # print(df_raw.show(5, truncate=False))
-
-    # Add ingestion metadata
     df = (
         df_raw.withColumn("pipeline_name", lit("customer_raw_to_bronze"))
         .withColumn(
@@ -74,9 +68,12 @@ def validate_schema(spark_client, df, table_name):
     iceberg.bronze.fact_customer_events
     """
     target_schema = spark_client.spark.table(table_name).schema
-
-    if df.schema != target_schema:
-        raise Exception("Schema mismatch detected.")
+    print("Showing target schema:", target_schema)
+    print("Showing source schema:")
+    df.printSchema()
+    for source_field, target_field in zip(df.schema, target_schema):
+        assert source_field.name == target_field.name
+        assert source_field.dataType == target_field.dataType
 
 
 def write_to_iceberg(df, table_name):
@@ -91,33 +88,63 @@ def write_to_iceberg(df, table_name):
     )
 
 
-def update_registry_table(spark, max_date: str, record_count: int):
+def update_registry_table(spark_client, max_date: str):
     """Record successful load"""
-    control_df = spark.createDataFrame(
+    control_df = spark_client.spark.createDataFrame(
         [("customer_raw_to_bronze", max_date, datetime.now(), "SUCCESS")],
         ["pipeline_name", "processed_date", "load_timestamp", "status"],
     )
     control_df.writeTo(REGISTRY_TABLE).append()
 
 
+def transform_to_bronze(df: DataFrame) -> DataFrame:
+    """
+    Transform raw customer events into the Bronze schema.
+    """
+    return (
+        df.withColumn(
+            "customer",
+            struct(
+                col("customer.customer_id").alias("customer_id"),
+                col("customer.name").alias("name"),
+                col("customer.email").alias("email"),
+                col("customer.country").alias("country"),
+                to_timestamp(col("customer.created_at")).alias("created_at"),
+            ),
+        )
+        .withColumn("_source_file", input_file_name())
+        .drop("pipeline_name")
+        .select(
+            "event_id",
+            "event_time",
+            "customer",
+            "_ingested_at",
+            "_source_file",
+        )
+    )
+
+
 # ========================= MAIN FUNCTION =========================
 def main():
     spark = SparkClient()
-    last_date = get_last_processed_date(spark)
-    print(f"Last processed date: {last_date}")
+    last_processed_date = get_last_processed_date(spark)
+    print(f"Last processed date: {last_processed_date}")
+    last_processed_date_dt = datetime.strptime(last_processed_date, "%Y-%m-%d")
     # Read new data based on checkpoint value
-    df = read_new_data(spark, BASE_INPUT_PATH, last_date)
+    df = read_new_data(spark, BASE_INPUT_PATH, last_processed_date_dt)
 
     # If there are new record then start the ingestion
     new_count = df.count()
     print(f"Found {new_count} new records to ingest.")
 
     if new_count > 0:
-        validate_schema(spark, df, TABLE_FULL_NAME)
+        df = transform_to_bronze(df)
+        validate_schema(spark_client=spark, df=df, table_name=TABLE_FULL_NAME)
         write_to_iceberg(df, TABLE_FULL_NAME)
 
-        max_date = df.selectExpr("max(dt_folder)").collect()[0][0]
-        update_registry_table(spark, max_date, new_count)
+        update_registry_table(
+            spark, (last_processed_date_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+        )
 
         print(f"Successfully loaded {new_count} records into Iceberg.")
     else:

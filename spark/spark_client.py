@@ -1,6 +1,5 @@
 from pyspark.sql import SparkSession
 from pathlib import Path
-import pyspark
 
 
 class SparkClient:
@@ -33,6 +32,7 @@ class SparkClient:
             .config("spark.sql.catalog.iceberg.s3.access-key-id", "minioadmin")
             .config("spark.sql.catalog.iceberg.s3.secret-access-key", "minioadmin")
             .config("spark.sql.catalog.iceberg.s3.path-style-access", "true")
+            .config("spark.sql.catalog.iceberg.client.region", "us-east-1")
             # Hadoop S3A config — needed for plain spark.read/write against s3:// paths
             .config(
                 "spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem"
@@ -46,6 +46,8 @@ class SparkClient:
                 "spark.hadoop.fs.s3a.aws.credentials.provider",
                 "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
             )
+            .config("spark.hadoop.fs.s3a.endpoint.region", "us-east-1")
+            .config("spark.hadoop.fs.s3a.region", "us-east-1")
             .getOrCreate()
         )
 
