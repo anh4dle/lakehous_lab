@@ -72,9 +72,10 @@ USING iceberg
 PARTITIONED BY (report_date);
 
 
+DROP TABLE IF EXISTS iceberg.metadata.ingestion_registry;
  CREATE TABLE IF NOT EXISTS iceberg.metadata.ingestion_registry (
     pipeline_name STRING,
-    processed_date STRING,
+    last_processed_date STRING,
     load_timestamp TIMESTAMP,
     status STRING
 ) USING iceberg
