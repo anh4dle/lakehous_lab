@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
         name: STRING,
         email: STRING,
         country: STRING,
-        created_at: TIMESTAMP
     >,
     _ingested_at    TIMESTAMP,
     _source_file    STRING
@@ -24,7 +23,6 @@ CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_orders_events (
         amount: FLOAT,
         status: STRING,
         items: INT,
-        created_at: TIMESTAMP
     >,
     _ingested_at    TIMESTAMP,
     _source_file    STRING
@@ -37,10 +35,7 @@ CREATE TABLE IF NOT EXISTS  iceberg.silver.dim_customer (
     name             STRING,
     email            STRING,
     country          STRING,
-    created_at       TIMESTAMP,
-    _valid_from      TIMESTAMP,
-    _valid_to        TIMESTAMP,
-    _is_current      BOOLEAN,
+    _ingested_at    TIMESTAMP,
     _source_event_id STRING
 )
 USING iceberg
@@ -54,7 +49,6 @@ CREATE TABLE IF NOT EXISTS  iceberg.silver.fact_orders (
     amount          DECIMAL(18,2),
     status          STRING,
     items           INT,
-    created_at      TIMESTAMP,
     _ingested_at    TIMESTAMP
 )
 USING iceberg

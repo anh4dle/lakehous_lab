@@ -9,3 +9,7 @@ REGISTRY_TABLE = "iceberg.metadata.ingestion_registry"
 CUSTOMER_BRONZE_PIPELINE_NAME = "customer_raw_to_bronze"
 CUSTOMER_SILVER_PIPELINE_NAME = "customer_bronze_to_silver"
 
+ORDER_BRONZE_PIPELINE_NAME = "order_raw_to_bronze"
+ORDER_SILVER_PIPELINE_NAME = "order_bronze_to_silver"
+
+GOLD_PIPELINE_NAME = "silver_to_gold"

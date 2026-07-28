@@ -8,10 +8,13 @@ from src.config.config import (
 )
 from src.utils.registry import (
     get_last_processed_date,
-    read_new_data,
-    write_to_iceberg,
     update_registry_table,
 )
+from src.utils.spark_io import (
+    read_new_data,
+    write_to_iceberg,
+)
+from src.utils.validation import validate_schema
 # =========================================================
 """
 Get last processed date from registry table
@@ -20,22 +23,8 @@ Transform data to Bronze schema
 Write data to Bronze table
 """
 
-def validate_schema(spark_client, df, table_name):
-    """Check if the schema of the DataFrame matches
-    the target Iceberg table schema
-    iceberg.bronze.fact_customer_events
-    """
-    target_schema = spark_client.spark.table(table_name).schema
-    print("Showing target schema:", target_schema)
-    print("Showing source schema:")
-    df.printSchema()
-    for source_field, target_field in zip(df.schema, target_schema):
-        assert source_field.name == target_field.name
-        assert source_field.dataType == target_field.dataType
-
-
 # ========================= MAIN FUNCTION =========================
-def main():
+def ingest_to_silver():
     spark = SparkClient()
     last_processed_date = get_last_processed_date(spark, CUSTOMER_SILVER_PIPELINE_NAME)
     print(f"Last processed date: {last_processed_date}")
@@ -64,4 +53,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ingest_to_silver()
