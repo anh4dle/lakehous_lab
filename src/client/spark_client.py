@@ -1,6 +1,5 @@
 from pyspark.sql import SparkSession
-from pathlib import Path
-
+from src.config.config import ROOT_DIR
 
 class SparkClient:
     def __init__(self):
@@ -61,8 +60,8 @@ class SparkClient:
         (df.write.format("iceberg").mode(mode).save(table))
 
     def bootstrap_sql_tables(self):
-        base_dir = Path(__file__).parent.parent
-        sql_dir = base_dir / "sql" / "all_ddl.sql"
+
+        sql_dir = ROOT_DIR / "sql" / "all_ddl.sql"
         with open(sql_dir) as f:
             sql = f.read()
             for statement in sql.split(";"):

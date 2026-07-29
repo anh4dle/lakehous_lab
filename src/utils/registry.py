@@ -1,16 +1,7 @@
-from pyspark.sql import DataFrame
-from datetime import datetime, timedelta
-import pandas as pd
-from pyspark.sql.functions import (
-    col,
-    current_timestamp,
-    to_timestamp,
-)
+from datetime import datetime
 from src.config.config import (
     REGISTRY_TABLE,
 )
-from pyspark.sql.functions import lit
-import uuid
 
 def get_last_processed_date(spark_client, pipeline_name) -> str:
     """Retrieve last successful processed date"""

@@ -1,6 +1,6 @@
 from data_generator.generate_data import run_simulation
-from src.common.minio_client import MinioClient
-from spark.spark_client import SparkClient
+from src.client.minio_client import MinioClient
+from src.client.spark_client import SparkClient
 
 
 def generate_data_to_minio():

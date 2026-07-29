@@ -6,19 +6,19 @@ from pyspark.sql.functions import (
     current_timestamp,
     date_trunc,
     input_file_name,
-    lit,
     sum as _sum,
     to_timestamp,
 )
+
 # =====================================================================
-# BRONZE LAYER TRANSFORMATIONS
+# 1. BRONZE TRANSFORMATIONS
 # =====================================================================
 
-def transform_customer_events_to_bronze(df: DataFrame) -> DataFrame:
+def transform_to_bronze_customer_events(raw_df: DataFrame) -> DataFrame:
     """
-    Transforms raw ingested customer events into iceberg.bronze.fact_customer_events.
+    Transforms raw JSON input into iceberg.bronze.fact_customer_events.
     """
-    return df.select(
+    return raw_df.select(
         col("event_id"),
         to_timestamp(col("event_time")).alias("event_time"),
         col("customer"),  # Struct <customer_id, name, email, country>
@@ -27,11 +27,11 @@ def transform_customer_events_to_bronze(df: DataFrame) -> DataFrame:
     )
 
 
-def transform_order_events_to_bronze(df: DataFrame) -> DataFrame:
+def transform_to_bronze_orders_events(raw_df: DataFrame) -> DataFrame:
     """
-    Transforms raw ingested order events into iceberg.bronze.fact_orders_events.
+    Transforms raw JSON input into iceberg.bronze.fact_orders_events.
     """
-    return df.select(
+    return raw_df.select(
         col("event_id"),
         to_timestamp(col("event_time")).alias("event_time"),
         col("order_detail"),  # Struct <customer_id, order_id, amount, status, items>
@@ -41,27 +41,29 @@ def transform_order_events_to_bronze(df: DataFrame) -> DataFrame:
 
 
 # =====================================================================
-# SILVER LAYER TRANSFORMATIONS
+# 2. SILVER TRANSFORMATIONS
 # =====================================================================
 
 def transform_to_silver_dim_customer(bronze_customer_df: DataFrame) -> DataFrame:
     """
     Flattens bronze customer events into iceberg.silver.dim_customer.
+    Matches updated DDL: event_id, event_time, customer_id, name, email, country, _ingested_at.
     """
     return bronze_customer_df.select(
+        col("event_id"),
+        col("event_time"),
         col("customer.customer_id").alias("customer_id"),
         col("customer.name").alias("name"),
         col("customer.email").alias("email"),
         col("customer.country").alias("country"),
         current_timestamp().alias("_ingested_at"),
-        col("event_id").alias("_source_event_id"),
-        lit(True).alias("_is_current"),  # Required by DDL PARTITIONED BY (_is_current)
     )
 
 
 def transform_to_silver_fact_orders(bronze_orders_df: DataFrame) -> DataFrame:
     """
-    Flattens bronze order events into iceberg.silver.fact_orders with type casting.
+    Flattens bronze order events into iceberg.silver.fact_orders.
+    Casts amount to DECIMAL(18,2) to match table contract.
     """
     return bronze_orders_df.select(
         col("event_id"),
@@ -74,28 +76,33 @@ def transform_to_silver_fact_orders(bronze_orders_df: DataFrame) -> DataFrame:
         current_timestamp().alias("_ingested_at"),
     )
 
+
 # =====================================================================
-# GOLD LAYER TRANSFORMATIONS
+# 3. GOLD TRANSFORMATIONS
 # =====================================================================
 
 def transform_to_gold_daily_orders_by_country(
-    silver_orders_df: DataFrame, silver_customers_df: DataFrame
+    silver_orders_df: DataFrame, 
+    silver_customers_df: DataFrame
 ) -> DataFrame:
     """
-    Joins Silver Orders and Silver Customers to build the Gold Data Mart:
-    iceberg.gold.daily_orders_by_country.
+    Joins Silver Orders and Silver Customers on customer_id to calculate 
+    daily metrics per country for iceberg.gold.daily_orders_by_country.
     """
-    # 1. Truncate event_time to DATE for daily aggregation
+    # 1. Truncate event_time to DATE for report_date
     orders_with_date = silver_orders_df.withColumn(
         "report_date", date_trunc("day", col("event_time")).cast("date")
     )
 
-    # 2. Join Orders with Customers on customer_id to get country
+    # 2. Join Orders with Customers to map customer_id -> country
+    # Note: Select only necessary columns from customer to avoid duplicate event_id/event_time columns
+    customers_lookup = silver_customers_df.select("customer_id", "country").distinct()
+
     joined_df = orders_with_date.join(
-        silver_customers_df, on="customer_id", how="inner"
+        customers_lookup, on="customer_id", how="inner"
     )
 
-    # 3. Aggregate metrics by report_date and country
+    # 3. Aggregate daily metrics
     gold_df = (
         joined_df.groupBy("report_date", "country")
         .agg(

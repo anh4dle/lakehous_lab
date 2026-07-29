@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from src.transform.transform_script import transform_to_bronze
+from src.transform.transform_script import transform_to_bronze_orders_events
 from src.client.spark_client import SparkClient
 from src.config.config import (
     BASE_INPUT_PATH,
@@ -38,7 +38,7 @@ def ingest_to_bronze():
     print(f"Found {new_count} new records to ingest.")
 
     if new_count > 0:
-        df = transform_to_bronze(df)
+        df = transform_to_bronze_orders_events(df)
         validate_schema(spark_client=spark, df=df, table_name=TABLE_FULL_NAME)
         write_to_iceberg(df, TABLE_FULL_NAME)
 

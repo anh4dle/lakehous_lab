@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from src.transform.transform_script import transform_to_silver
+from src.transform.transform_script import transform_to_silver_fact_orders
 from spark.spark_client import SparkClient
 from src.config.config import (
     BASE_INPUT_PATH,
@@ -37,7 +37,7 @@ def ingest_to_silver():
     print(f"Found {new_count} new records to ingest.")
 
     if new_count > 0:
-        df = transform_to_silver(df)
+        df = transform_to_silver_fact_orders(df)
         validate_schema(spark_client=spark, df=df, table_name=TABLE_FULL_NAME)
         write_to_iceberg(df, TABLE_FULL_NAME)
 

@@ -1,11 +1,12 @@
+DROP TABLE IF EXISTS iceberg.bronze.fact_customer_events;
 CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
     event_id        STRING,
     event_time      TIMESTAMP,
     customer        STRUCT<
-        customer_id: STRING,
-        name: STRING,
-        email: STRING,
-        country: STRING,
+        customer_id STRING,
+        name STRING,
+        email STRING,
+        country STRING
     >,
     _ingested_at    TIMESTAMP,
     _source_file    STRING
@@ -13,16 +14,16 @@ CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
 USING iceberg
 PARTITIONED BY (days(event_time));
 
-
+DROP TABLE IF EXISTS iceberg.bronze.fact_orders_events;
 CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_orders_events (
     event_id        STRING,
     event_time      TIMESTAMP,
     order_detail    STRUCT<
-        customer_id: STRING,
-        order_id: STRING,
-        amount: FLOAT,
-        status: STRING,
-        items: INT,
+        customer_id STRING,
+        order_id STRING,
+        amount FLOAT,
+        status STRING,
+        items INT
     >,
     _ingested_at    TIMESTAMP,
     _source_file    STRING
@@ -30,17 +31,20 @@ CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_orders_events (
 USING iceberg
 PARTITIONED BY (days(event_time));
 
+DROP TABLE IF EXISTS iceberg.silver.dim_customer;
 CREATE TABLE IF NOT EXISTS  iceberg.silver.dim_customer (
+    event_id        STRING,
+    event_time      TIMESTAMP,
     customer_id      STRING,
     name             STRING,
     email            STRING,
     country          STRING,
-    _ingested_at    TIMESTAMP,
-    _source_event_id STRING
+    _ingested_at    TIMESTAMP
 )
 USING iceberg
-PARTITIONED BY (_is_current);
+PARTITIONED BY (days(event_time));
 
+DROP TABLE IF EXISTS iceberg.silver.fact_orders;
 CREATE TABLE IF NOT EXISTS  iceberg.silver.fact_orders (
     event_id        STRING,
     event_time      TIMESTAMP,
@@ -54,6 +58,7 @@ CREATE TABLE IF NOT EXISTS  iceberg.silver.fact_orders (
 USING iceberg
 PARTITIONED BY (days(event_time));
 
+DROP TABLE IF EXISTS iceberg.gold.daily_orders_by_country;
 CREATE TABLE IF NOT EXISTS  iceberg.gold.daily_orders_by_country (
     report_date         DATE,
     country              STRING,

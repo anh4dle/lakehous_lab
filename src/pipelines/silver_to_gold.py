@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from src.transform.transform_script import transform_to_gold
+from src.transform.transform_script import transform_to_gold_daily_orders_by_country
 from src.client.spark_client import SparkClient
 from src.config.config import (
     BASE_INPUT_PATH,
@@ -36,7 +36,7 @@ def ingest_to_gold():
     print(f"Found {new_count} new records to ingest.")
 
     if new_count > 0:
-        df = transform_to_gold(df)
+        df = transform_to_gold_daily_orders_by_country(df)
         write_to_iceberg(df, TABLE_FULL_NAME)
 
         update_registry_table(
