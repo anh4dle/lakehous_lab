@@ -1,7 +1,7 @@
-import datetime
 import pandera as pa
-from pandera.typing import Series, DataFrame
-from typing import Dict, Any, Optional
+import pandas as pd
+from pandera.typing import Series
+from typing import Any
 # ==========================================
 # Common / Custom Data Quality Checks
 # ==========================================
@@ -17,15 +17,15 @@ class CustomerEventsBronzeSchema(pa.DataFrameModel):
     event_id: Series[str] = pa.Field(nullable=False)
     event_time: Series[pa.Timestamp] = pa.Field(nullable=False)
     
-    # STRUCT<customer_id STRING, name STRING, email STRING, country STRING>
+    # STRUCT(nested data)<customer_id STRING, name STRING, email STRING, country STRING>
     customer: Series[object] = pa.Field(nullable=False)
     
     _ingested_at: Series[pa.Timestamp] = pa.Field(nullable=False)
     _source_file: Series[str] = pa.Field(nullable=False)
 
     class Config:
-        coerce = True
-        strict = True
+        coerce = True #automatically cast compatible types(timestamp in string format to datetime)
+        strict = True #strict validation, raise error if data type is not correct
 
     @pa.check("customer", name="validate_customer_struct_fields")
     def validate_customer_struct(cls, customer_series: Series[object]) -> Series[bool]:
@@ -37,7 +37,6 @@ class CustomerEventsBronzeSchema(pa.DataFrameModel):
             return required_keys.issubset(val.keys()) and isinstance(val.get("customer_id"), str)
 
         return customer_series.apply(is_valid_struct)
-
 
 class OrderEventsBronzeSchema(pa.DataFrameModel):
     """Corresponds to iceberg.bronze.fact_orders_events"""

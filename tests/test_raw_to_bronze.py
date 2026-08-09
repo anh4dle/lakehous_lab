@@ -8,7 +8,7 @@ from pyspark.sql.functions import (
     struct,
 )
 from pyspark.sql import DataFrame
-from spark.spark_client import SparkClient
+from src.client.spark_client import SparkClient
 from pyspark.sql.functions import lit
 
 from src.config.config import (

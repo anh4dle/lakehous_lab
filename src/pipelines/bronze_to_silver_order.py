@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from src.transform.transform_script import transform_to_silver_fact_orders
-from spark.spark_client import SparkClient
+from src.client.spark_client import SparkClient
 from src.config.config import (
     BASE_INPUT_PATH,
     TABLE_FULL_NAME,

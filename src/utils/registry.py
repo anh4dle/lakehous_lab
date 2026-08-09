@@ -9,7 +9,7 @@ def get_last_processed_date(spark_client, pipeline_name) -> str:
         f"""
         SELECT COALESCE(MAX(last_processed_date), '2026-05-01') as last_date 
         FROM {REGISTRY_TABLE}
-        WHERE pipeline_name = {pipeline_name}
+        WHERE pipeline_name = '{pipeline_name}'
     """
     )
     return df.collect()[0]["last_date"]
