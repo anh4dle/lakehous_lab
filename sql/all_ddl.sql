@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
         customer_id STRING,
         name STRING,
         email STRING,
-        country STRING
+        country STRING,
+        created_at STRING
     >,
-    _ingested_at    TIMESTAMP,
-    _source_file    STRING
+    _ingested_at    TIMESTAMP
 )
 USING iceberg
 PARTITIONED BY (days(event_time));
@@ -18,15 +18,15 @@ DROP TABLE IF EXISTS iceberg.bronze.fact_orders_events;
 CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_orders_events (
     event_id        STRING,
     event_time      TIMESTAMP,
-    order_detail    STRUCT<
-        customer_id STRING,
+    order    STRUCT<
         order_id STRING,
+        customer_id STRING,
         amount FLOAT,
         status STRING,
-        items INT
+        items INT,
+        created_at STRING
     >,
-    _ingested_at    TIMESTAMP,
-    _source_file    STRING
+    _ingested_at    TIMESTAMP
 )
 USING iceberg
 PARTITIONED BY (days(event_time));

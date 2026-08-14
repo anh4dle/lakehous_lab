@@ -31,7 +31,7 @@ def ingest_to_bronze():
     print(f"Last processed date: {last_processed_date}")
     last_processed_date_dt = datetime.strptime(last_processed_date, "%Y-%m-%d")
     # Read new data based on checkpoint value
-    df = read_new_data(spark, BASE_INPUT_PATH, last_processed_date_dt, CUSTOMER_BRONZE_PIPELINE_NAME)
+    df = read_new_data(spark, BASE_INPUT_PATH + "/customers", last_processed_date_dt, CUSTOMER_BRONZE_PIPELINE_NAME)
 
     # If there are new record then start the ingestion
     new_count = df.count()
@@ -43,7 +43,8 @@ def ingest_to_bronze():
         write_to_iceberg(df, TABLE_FULL_NAME)
 
         update_registry_table(
-            spark, (last_processed_date_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+            spark, (last_processed_date_dt + timedelta(days=1)).strftime("%Y-%m-%d"), 
+            pipeline_name=CUSTOMER_BRONZE_PIPELINE_NAME
         )
 
         print(f"Successfully loaded {new_count} records into Iceberg.")

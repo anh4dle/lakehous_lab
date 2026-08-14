@@ -3,7 +3,7 @@ from src.transform.transform_script import transform_to_bronze_orders_events
 from src.client.spark_client import SparkClient
 from src.config.config import (
     BASE_INPUT_PATH,
-    TABLE_FULL_NAME,
+    BRONZE_ORDER_TABLE,
     ORDER_BRONZE_PIPELINE_NAME
 )
 from src.utils.registry import (
@@ -31,7 +31,7 @@ def ingest_to_bronze():
     print(f"Last processed date: {last_processed_date}")
     last_processed_date_dt = datetime.strptime(last_processed_date, "%Y-%m-%d")
     # Read new data based on checkpoint value
-    df = read_new_data(spark, BASE_INPUT_PATH, last_processed_date_dt, ORDER_BRONZE_PIPELINE_NAME)
+    df = read_new_data(spark, BASE_INPUT_PATH + "/orders", last_processed_date_dt, ORDER_BRONZE_PIPELINE_NAME)
 
     # If there are new record then start the ingestion
     new_count = df.count()
@@ -39,8 +39,8 @@ def ingest_to_bronze():
 
     if new_count > 0:
         df = transform_to_bronze_orders_events(df)
-        validate_schema(spark_client=spark, df=df, table_name=TABLE_FULL_NAME)
-        write_to_iceberg(df, TABLE_FULL_NAME)
+        validate_schema(spark_client=spark, source_df=df, target_table_name=BRONZE_ORDER_TABLE)
+        write_to_iceberg(df, BRONZE_ORDER_TABLE)
 
         update_registry_table(
             spark, (last_processed_date_dt + timedelta(days=1)).strftime("%Y-%m-%d")

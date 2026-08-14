@@ -82,9 +82,7 @@ def generate_orders_for_day(state, base_date, n):
     for _ in range(n):
         state["order_seq"] += 1
         order_id = f"O{state['order_seq']}"
-
         customer_id = f"C{random.randint(1001, state['customer_seq'])}"
-
         event_time = random_time_in_day(base_date)
 
         event = {

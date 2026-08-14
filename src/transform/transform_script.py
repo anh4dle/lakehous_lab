@@ -1,42 +1,63 @@
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import (
     col,
+    struct,
     count,
     countDistinct,
     current_timestamp,
     date_trunc,
     input_file_name,
     sum as _sum,
+    lit,
     to_timestamp,
 )
-
+from datetime import datetime, timezone
 # =====================================================================
 # 1. BRONZE TRANSFORMATIONS
 # =====================================================================
+def get_current_utc_string() -> str:
+    """Generates a static ISO timestamp string in Python runtime."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 def transform_to_bronze_customer_events(raw_df: DataFrame) -> DataFrame:
     """
     Transforms raw JSON input into iceberg.bronze.fact_customer_events.
     """
-    return raw_df.select(
+    execution_time = get_current_utc_string()
+
+    raw_df = raw_df.select(
         col("event_id"),
         to_timestamp(col("event_time")).alias("event_time"),
         col("customer"),  # Struct <customer_id, name, email, country>
-        current_timestamp().alias("_ingested_at"),
-        input_file_name().alias("_source_file"),
+        to_timestamp(lit(execution_time)).alias("_ingested_at"),
     )
+    
+    return raw_df.select(
+        col("event_id"),
+        col("event_time"),
+        struct(
+            col("customer.customer_id").alias("customer_id"),
+            col("customer.name").alias("name"),
+            col("customer.email").alias("email"),
+            col("customer.country").alias("country"),
+            col("customer.created_at").alias("created_at")
+        ).alias("customer"),
+        col("_ingested_at"),
+    )
+
 
 
 def transform_to_bronze_orders_events(raw_df: DataFrame) -> DataFrame:
     """
     Transforms raw JSON input into iceberg.bronze.fact_orders_events.
     """
+    execution_time = get_current_utc_string()
+
     return raw_df.select(
         col("event_id"),
         to_timestamp(col("event_time")).alias("event_time"),
-        col("order_detail"),  # Struct <customer_id, order_id, amount, status, items>
-        current_timestamp().alias("_ingested_at"),
-        input_file_name().alias("_source_file"),
+        col("order"),  # Struct <customer_id, order_id, amount, status, items>
+        to_timestamp(lit(execution_time)).alias("_ingested_at"),
     )
 
 
@@ -68,11 +89,11 @@ def transform_to_silver_fact_orders(bronze_orders_df: DataFrame) -> DataFrame:
     return bronze_orders_df.select(
         col("event_id"),
         col("event_time"),
-        col("order_detail.customer_id").alias("customer_id"),
-        col("order_detail.order_id").alias("order_id"),
-        col("order_detail.amount").cast("decimal(18,2)").alias("amount"),
-        col("order_detail.status").alias("status"),
-        col("order_detail.items").alias("items"),
+        col("order.customer_id").alias("customer_id"),
+        col("order.order_id").alias("order_id"),
+        col("order.amount").cast("decimal(18,2)").alias("amount"),
+        col("order.status").alias("status"),
+        col("order.items").alias("items"),
         current_timestamp().alias("_ingested_at"),
     )
 
@@ -122,3 +143,4 @@ def transform_to_gold_daily_orders_by_country(
     )
 
     return gold_df
+

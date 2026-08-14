@@ -3,7 +3,7 @@ from src.transform.transform_script import transform_to_silver_dim_customer
 from src.client.spark_client import SparkClient
 from src.config.config import (
     BASE_INPUT_PATH,
-    TABLE_FULL_NAME,
+    SILVER_CUSTOMER_TABLE,
     CUSTOMER_SILVER_PIPELINE_NAME
 )
 from src.utils.registry import (
@@ -38,8 +38,8 @@ def ingest_to_silver():
 
     if new_count > 0:
         df = transform_to_silver_dim_customer(df)
-        validate_schema(spark_client=spark, df=df, table_name=TABLE_FULL_NAME)
-        write_to_iceberg(df, TABLE_FULL_NAME)
+        validate_schema(spark_client=spark, df=df, table_name=SILVER_CUSTOMER_TABLE)
+        write_to_iceberg(df, SILVER_CUSTOMER_TABLE)
 
         update_registry_table(
             spark, (last_processed_date_dt + timedelta(days=1)).strftime("%Y-%m-%d"), CUSTOMER_SILVER_PIPELINE_NAME
