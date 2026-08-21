@@ -60,7 +60,6 @@ class SparkClient:
         (df.write.format("iceberg").mode(mode).save(table))
 
     def bootstrap_sql_tables(self):
-
         sql_dir = ROOT_DIR / "sql" / "all_ddl.sql"
         with open(sql_dir) as f:
             sql = f.read()

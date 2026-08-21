@@ -44,7 +44,6 @@ def read_new_data(spark_client, base_path: str, last_processed_date: datetime, p
     )
     return df
 
-
 def write_to_iceberg(df: DataFrame, table_name: str):
     """Executes an idempotent MERGE INTO without cache overhead."""
     # Remove duplicate events within this batch
