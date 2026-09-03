@@ -3,6 +3,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent.parent.parent
 
 BASE_INPUT_PATH = "s3a://warehouse/raw/"
+
 REGISTRY_TABLE = "iceberg.metadata.ingestion_registry"
 
 CUSTOMER_BRONZE_PIPELINE_NAME = "customer_raw_to_bronze"

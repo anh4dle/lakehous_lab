@@ -6,18 +6,20 @@ from pyspark.sql.functions import (
     countDistinct,
     current_timestamp,
     date_trunc,
-    input_file_name,
     sum as _sum,
     lit,
     to_timestamp,
 )
 from datetime import datetime, timezone
+
+
 # =====================================================================
 # 1. BRONZE TRANSFORMATIONS
 # =====================================================================
 def get_current_utc_string() -> str:
     """Generates a static ISO timestamp string in Python runtime."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
 
 def transform_to_bronze_customer_events(raw_df: DataFrame) -> DataFrame:
     """
@@ -31,7 +33,7 @@ def transform_to_bronze_customer_events(raw_df: DataFrame) -> DataFrame:
         col("customer"),  # Struct <customer_id, name, email, country>
         to_timestamp(lit(execution_time)).alias("_ingested_at"),
     )
-    
+
     return raw_df.select(
         col("event_id"),
         col("event_time"),
@@ -40,23 +42,30 @@ def transform_to_bronze_customer_events(raw_df: DataFrame) -> DataFrame:
             col("customer.name").alias("name"),
             col("customer.email").alias("email"),
             col("customer.country").alias("country"),
-            col("customer.created_at").alias("created_at")
+            col("customer.created_at").alias("created_at"),
         ).alias("customer"),
         col("_ingested_at"),
     )
-
 
 
 def transform_to_bronze_orders_events(raw_df: DataFrame) -> DataFrame:
     """
     Transforms raw JSON input into iceberg.bronze.fact_orders_events.
     """
+
     execution_time = get_current_utc_string()
 
     return raw_df.select(
         col("event_id"),
         to_timestamp(col("event_time")).alias("event_time"),
-        col("order"),  # Struct <customer_id, order_id, amount, status, items>
+        struct(
+            col("order.order_id").cast("string").alias("order_id"),
+            col("order.customer_id").cast("string").alias("customer_id"),
+            col("order.amount").cast("float").alias("amount"),
+            col("order.status").cast("string").alias("status"),
+            col("order.items").cast("int").alias("items"),
+            col("order.created_at").cast("string").alias("created_at"),
+        ).alias("order"),
         to_timestamp(lit(execution_time)).alias("_ingested_at"),
     )
 
@@ -64,6 +73,7 @@ def transform_to_bronze_orders_events(raw_df: DataFrame) -> DataFrame:
 # =====================================================================
 # 2. SILVER TRANSFORMATIONS
 # =====================================================================
+
 
 def transform_to_silver_dim_customer(bronze_customer_df: DataFrame) -> DataFrame:
     """
@@ -102,12 +112,12 @@ def transform_to_silver_fact_orders(bronze_orders_df: DataFrame) -> DataFrame:
 # 3. GOLD TRANSFORMATIONS
 # =====================================================================
 
+
 def transform_to_gold_daily_orders_by_country(
-    silver_orders_df: DataFrame, 
-    silver_customers_df: DataFrame
+    silver_orders_df: DataFrame, silver_customers_df: DataFrame
 ) -> DataFrame:
     """
-    Joins Silver Orders and Silver Customers on customer_id to calculate 
+    Joins Silver Orders and Silver Customers on customer_id to calculate
     daily metrics per country for iceberg.gold.daily_orders_by_country.
     """
     # 1. Truncate event_time to DATE for report_date
@@ -119,9 +129,7 @@ def transform_to_gold_daily_orders_by_country(
     # Note: Select only necessary columns from customer to avoid duplicate event_id/event_time columns
     customers_lookup = silver_customers_df.select("customer_id", "country").distinct()
 
-    joined_df = orders_with_date.join(
-        customers_lookup, on="customer_id", how="inner"
-    )
+    joined_df = orders_with_date.join(customers_lookup, on="customer_id", how="inner")
 
     # 3. Aggregate daily metrics
     gold_df = (
@@ -129,7 +137,9 @@ def transform_to_gold_daily_orders_by_country(
         .agg(
             count("order_id").alias("order_count"),
             _sum("amount").cast("decimal(18,2)").alias("total_amount"),
-            (_sum("amount") / count("order_id")).cast("decimal(18,2)").alias("avg_order_value"),
+            (_sum("amount") / count("order_id"))
+            .cast("decimal(18,2)")
+            .alias("avg_order_value"),
             countDistinct("customer_id").alias("distinct_customers"),
         )
         .select(
@@ -143,4 +153,3 @@ def transform_to_gold_daily_orders_by_country(
     )
 
     return gold_df
-

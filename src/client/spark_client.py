@@ -1,12 +1,18 @@
 from pyspark.sql import SparkSession
 from src.config.config import ROOT_DIR
 
+
+from pyspark.sql import SparkSession
+from src.config.config import ROOT_DIR
+
+
 class SparkClient:
     def __init__(self):
+        # Coordinates targeting Spark 3.5 and Scala 2.12
         packages = [
-            "org.apache.iceberg:iceberg-spark-runtime-4.1_2.13:1.11.0",
-            "org.apache.iceberg:iceberg-aws-bundle:1.11.0",
-            "org.apache.hadoop:hadoop-aws:3.4.1",  # match your Spark's bundled Hadoop version
+            "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2",
+            "org.apache.iceberg:iceberg-aws-bundle:1.5.2",
+            "org.apache.hadoop:hadoop-aws:3.3.4",
         ]
 
         self.spark = (
@@ -16,7 +22,6 @@ class SparkClient:
                 "spark.sql.extensions",
                 "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
             )
-            # Iceberg REST catalog (unchanged, uses S3FileIO for table data)
             .config(
                 "spark.sql.catalog.iceberg", "org.apache.iceberg.spark.SparkCatalog"
             )
@@ -32,7 +37,6 @@ class SparkClient:
             .config("spark.sql.catalog.iceberg.s3.secret-access-key", "minioadmin")
             .config("spark.sql.catalog.iceberg.s3.path-style-access", "true")
             .config("spark.sql.catalog.iceberg.client.region", "us-east-1")
-            # Hadoop S3A config — needed for plain spark.read/write against s3:// paths
             .config(
                 "spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem"
             )
@@ -49,7 +53,7 @@ class SparkClient:
             .config("spark.hadoop.fs.s3a.region", "us-east-1")
             .getOrCreate()
         )
-
+        
     def read_json(self, path):
         return self.spark.read.json(path)
 

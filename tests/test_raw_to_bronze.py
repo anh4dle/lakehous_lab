@@ -16,6 +16,7 @@ from src.config.config import (
     BASE_INPUT_PATH,
     TABLE_FULL_NAME,
 )
+
 # =========================================================
 """
 Get last processed date from registry table
@@ -23,6 +24,7 @@ Read data from S3 path
 Transform data to Bronze schema
 Write data to Bronze table
 """
+
 
 def read_new_data(spark_client, base_path: str, last_processed_date: datetime):
     """Read all data from a path into a DataFrame"""
@@ -85,6 +87,7 @@ def write_to_iceberg(df: DataFrame, table_name: str):
           INSERT *
     """)
 
+
 def update_registry_table(spark_client, max_date: str):
     """Record successful load"""
     control_df = spark_client.spark.createDataFrame(
@@ -120,8 +123,11 @@ def transform_to_bronze(df: DataFrame) -> DataFrame:
         )
     )
 
+
 def create_test_tables():
     pass
+
+
 # ========================= MAIN FUNCTION =========================
 def main():
     spark = SparkClient()

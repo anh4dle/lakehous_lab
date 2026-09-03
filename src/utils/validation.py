@@ -1,4 +1,3 @@
-
 def validate_schema(spark_client, source_df, target_table_name):
     """Check if the schema of the DataFrame matches
     the target Iceberg table schema
