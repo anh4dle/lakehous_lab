@@ -1,5 +1,5 @@
 def validate_schema(spark_client, source_df, target_table_name):
-    """Check if the schema of the DataFrame matches
+    """Check if the read schema matches
     the target Iceberg table schema
     iceberg.bronze.fact_customer_events
     """

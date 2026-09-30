@@ -53,7 +53,7 @@ class SparkClient:
             .config("spark.hadoop.fs.s3a.region", "us-east-1")
             .getOrCreate()
         )
-        
+
     def read_json(self, path):
         return self.spark.read.json(path)
 

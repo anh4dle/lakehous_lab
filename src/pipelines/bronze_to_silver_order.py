@@ -4,6 +4,7 @@ from src.client.spark_client import SparkClient
 from src.config.config import (
     BRONZE_ORDER_TABLE,
     ORDER_SILVER_PIPELINE_NAME,
+    SILVER_ORDER_TABLE,
 )
 from src.utils.registry import (
     get_last_processed_date,
@@ -29,12 +30,13 @@ def ingest_to_silver():
     spark = SparkClient()
     last_processed_date = get_last_processed_date(spark, ORDER_SILVER_PIPELINE_NAME)
     print(f"Last processed date: {last_processed_date}")
-    last_processed_date_dt = datetime.strptime(
-        last_processed_date, "%Y-%m-%d"
-    )
+    last_processed_date_dt = datetime.strptime(last_processed_date, "%Y-%m-%d")
     # Read new data based on checkpoint value
     df = read_new_data(
-        spark, BRONZE_ORDER_TABLE, last_processed_date_dt, ORDER_SILVER_PIPELINE_NAME
+        spark,
+        BRONZE_ORDER_TABLE,
+        last_processed_date_dt,
+        pipeline_name=ORDER_SILVER_PIPELINE_NAME,
     )
 
     # If there are new record then start the ingestion
@@ -43,8 +45,10 @@ def ingest_to_silver():
 
     if new_count > 0:
         df = transform_to_silver_fact_orders(df)
-        validate_schema(spark_client=spark, source_df=df, target_table_name=BRONZE_ORDER_TABLE)
-        write_to_iceberg(df, BRONZE_ORDER_TABLE)
+        validate_schema(
+            spark_client=spark, source_df=df, target_table_name=SILVER_ORDER_TABLE
+        )
+        write_to_iceberg(df, SILVER_ORDER_TABLE)
 
         update_registry_table(
             spark,

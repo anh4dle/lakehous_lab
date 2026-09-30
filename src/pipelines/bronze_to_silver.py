@@ -39,14 +39,16 @@ def ingest_to_silver():
         last_processed_date_dt,
         CUSTOMER_SILVER_PIPELINE_NAME,
     )
-    
+
     # If there are new record then start the ingestion
     new_count = df.count()
     print(f"Found {new_count} new records to ingest.")
 
     if new_count > 0:
         df = transform_to_silver_dim_customer(df)
-        validate_schema(spark_client=spark, source_df=df, target_table_name=SILVER_CUSTOMER_TABLE)
+        validate_schema(
+            spark_client=spark, source_df=df, target_table_name=SILVER_CUSTOMER_TABLE
+        )
         write_to_iceberg(df, SILVER_CUSTOMER_TABLE)
 
         update_registry_table(

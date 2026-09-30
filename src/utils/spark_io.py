@@ -1,11 +1,8 @@
 from datetime import datetime, timedelta, timezone
 import uuid
-import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, to_timestamp
-from src.config.config import BASE_INPUT_PATH
-
-
+from typing import List, Union
 def get_current_utc_string() -> str:
     """Returns a deterministic UTC timestamp string."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -81,20 +78,35 @@ def read_new_data(
     )
 
 
-def write_to_iceberg(df: DataFrame, table_name: str):
-    """Executes an idempotent MERGE INTO without cache overhead."""
-    # Remove duplicate events within this batch
-    df = df.dropDuplicates(["event_id"])
+def write_to_iceberg(
+    df: DataFrame, 
+    table_name: str, 
+    primary_keys: Union[str, List[str]] = "event_id"
+):
+    """
+    Executes an idempotent MERGE INTO against an Iceberg table using 
+    custom primary key(s) (e.g., 'event_id' for Silver, ['report_date', 'country'] for Gold).
+    """
+    if isinstance(primary_keys, str):
+        primary_keys = [primary_keys]
 
-    # Register as a temporary view
+    # 1. Deduplicate batch on the table's specific composite key
+    df_deduped = df.dropDuplicates(primary_keys)
+
+    # 2. Build dynamic join predicate: "target.key1 = source.key1 AND target.key2 = source.key2"
+    join_predicate = " AND ".join(
+        [f"target.{key} = source.{key}" for key in primary_keys]
+    )
+
+    # 3. Register temporary view
     temp_view_name = f"staging_{uuid.uuid4().hex[:8]}"
-    df.createOrReplaceTempView(temp_view_name)
-    # Idempotent upsert
+    df_deduped.createOrReplaceTempView(temp_view_name)
+
     try:
         df.sparkSession.sql(f"""
             MERGE INTO {table_name} AS target
             USING {temp_view_name} AS source
-            ON target.event_id = source.event_id
+            ON {join_predicate}
             WHEN MATCHED THEN
               UPDATE SET *
             WHEN NOT MATCHED THEN
