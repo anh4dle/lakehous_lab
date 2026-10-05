@@ -3,7 +3,6 @@ from src.config.config import (
     REGISTRY_TABLE,
 )
 
-
 def get_last_processed_date(spark_client, pipeline_name) -> str:
     """Retrieve last successful processed date"""
     df = spark_client.spark.sql(
@@ -14,7 +13,6 @@ def get_last_processed_date(spark_client, pipeline_name) -> str:
     """
     )
     return df.collect()[0]["last_date"]
-
 
 def update_registry_table(spark_client, max_date: str, pipeline_name):
     """Record successful load"""

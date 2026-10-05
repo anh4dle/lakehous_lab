@@ -4,3 +4,5 @@ data_generator/output
 test_data
 data
 logs
+
+__pycache__

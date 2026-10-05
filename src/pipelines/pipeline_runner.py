@@ -1,6 +1,6 @@
 # src/engine/base_runner.py
 from datetime import datetime, timedelta
-from typing import Callable, List, Optional
+from typing import Callable, List
 from pyspark.sql import DataFrame
 
 from src.client.spark_client import SparkClient
