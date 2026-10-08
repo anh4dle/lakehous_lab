@@ -55,7 +55,7 @@ class LakehousePipelineRunner:
     def run_multi_source_pipeline(
         self,
         pipeline_name: str,
-        sources: dict,  # e.g., {'orders': 'iceberg.silver.fact_orders', ...}
+        sources: dict,
         target_table: str,
         primary_keys: List[str],
         transform_fn: Callable[..., DataFrame],

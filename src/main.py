@@ -8,9 +8,11 @@ def generate_data_to_minio():
     minio_client = MinioClient()
     minio_client.upload_directory("../data_generator/output", "warehouse", "raw")
 
+
 def main():
     # generate_data_to_minio()
     spark_client = SparkClient()
     spark_client.bootstrap_sql_tables()
+
 
 main()

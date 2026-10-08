@@ -3,6 +3,8 @@ import uuid
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, to_timestamp
 from typing import List, Union
+
+
 def get_current_utc_string() -> str:
     """Returns a deterministic UTC timestamp string."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -79,12 +81,10 @@ def read_new_data(
 
 
 def write_to_iceberg(
-    df: DataFrame, 
-    table_name: str, 
-    primary_keys: Union[str, List[str]] = "event_id"
+    df: DataFrame, table_name: str, primary_keys: Union[str, List[str]] = "event_id"
 ):
     """
-    Executes an idempotent MERGE INTO against an Iceberg table using 
+    Executes an idempotent MERGE INTO against an Iceberg table using
     custom primary key(s) (e.g., 'event_id' for Silver, ['report_date', 'country'] for Gold).
     """
     if isinstance(primary_keys, str):

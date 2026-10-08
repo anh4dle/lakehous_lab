@@ -8,6 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 BASE_INPUT_PATH = "s3a://warehouse/raw/"
 REGISTRY_TABLE = "iceberg.metadata.ingestion_registry"
 
+
 # --- Bronze Layer Contracts ---
 @dataclass(frozen=True)
 class CustomerBronzeConfig:
@@ -16,12 +17,14 @@ class CustomerBronzeConfig:
     INPUT_PATH: str = f"{BASE_INPUT_PATH}customers/"
     SOURCE_TYPE: str = "raw"
 
+
 @dataclass(frozen=True)
 class OrderBronzeConfig:
     PIPELINE_NAME: str = "order_raw_to_bronze"
     TABLE_NAME: str = "iceberg.bronze.fact_orders_events"
     INPUT_PATH: str = f"{BASE_INPUT_PATH}orders/"
     SOURCE_TYPE: str = "raw"
+
 
 # --- Silver Layer Contracts ---
 @dataclass(frozen=True)
@@ -30,11 +33,13 @@ class CustomerSilverConfig:
     TABLE_NAME: str = "iceberg.silver.dim_customer"
     SOURCE_TYPE: str = "iceberg"
 
+
 @dataclass(frozen=True)
 class OrderSilverConfig:
     PIPELINE_NAME: str = "order_bronze_to_silver"
     TABLE_NAME: str = "iceberg.silver.fact_orders"
     SOURCE_TYPE: str = "iceberg"
+
 
 # --- Gold Layer Contracts ---
 @dataclass(frozen=True)

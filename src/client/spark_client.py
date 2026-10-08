@@ -1,17 +1,24 @@
+import os
 from pyspark.sql import SparkSession
 from src.config.config import ROOT_DIR
-
-
-from pyspark.sql import SparkSession
-from src.config.config import ROOT_DIR
-
 
 class SparkClient:
-    def __init__(self):
+    def __init__(self, env="local"):
+        # Determine environment: 'local' (default) or 'docker'
+        env = "docker"
+
+        # Define endpoints based on the environment
+        if env == "docker":
+            s3_endpoint = os.getenv("S3_ENDPOINT", "http://minio:9000")
+            catalog_uri = os.getenv("CATALOG_URI", "http://iceberg-rest:8181")
+        else:  # local
+            s3_endpoint = os.getenv("S3_ENDPOINT", "http://localhost:9000")
+            catalog_uri = os.getenv("CATALOG_URI", "http://localhost:8181")
+
         # Coordinates targeting Spark 3.5 and Scala 2.12
         packages = [
-            "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2",
-            "org.apache.iceberg:iceberg-aws-bundle:1.5.2",
+            "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1",
+            "org.apache.iceberg:iceberg-aws-bundle:1.6.1",
             "org.apache.hadoop:hadoop-aws:3.3.4",
         ]
 
@@ -26,13 +33,13 @@ class SparkClient:
                 "spark.sql.catalog.iceberg", "org.apache.iceberg.spark.SparkCatalog"
             )
             .config("spark.sql.catalog.iceberg.type", "rest")
-            .config("spark.sql.catalog.iceberg.uri", "http://localhost:8181")
+            .config("spark.sql.catalog.iceberg.uri", catalog_uri)
             .config("spark.sql.catalog.iceberg.warehouse", "s3://warehouse")
             .config(
                 "spark.sql.catalog.iceberg.io-impl",
                 "org.apache.iceberg.aws.s3.S3FileIO",
             )
-            .config("spark.sql.catalog.iceberg.s3.endpoint", "http://localhost:9000")
+            .config("spark.sql.catalog.iceberg.s3.endpoint", s3_endpoint)
             .config("spark.sql.catalog.iceberg.s3.access-key-id", "minioadmin")
             .config("spark.sql.catalog.iceberg.s3.secret-access-key", "minioadmin")
             .config("spark.sql.catalog.iceberg.s3.path-style-access", "true")
@@ -40,7 +47,7 @@ class SparkClient:
             .config(
                 "spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem"
             )
-            .config("spark.hadoop.fs.s3a.endpoint", "http://localhost:9000")
+            .config("spark.hadoop.fs.s3a.endpoint", s3_endpoint)
             .config("spark.hadoop.fs.s3a.access.key", "minioadmin")
             .config("spark.hadoop.fs.s3a.secret.key", "minioadmin")
             .config("spark.hadoop.fs.s3a.path.style.access", "true")
@@ -53,7 +60,7 @@ class SparkClient:
             .config("spark.hadoop.fs.s3a.region", "us-east-1")
             .getOrCreate()
         )
-
+        
     def read_json(self, path):
         return self.spark.read.json(path)
 
