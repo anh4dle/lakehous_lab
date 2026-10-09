@@ -21,10 +21,10 @@ with DAG(
         application="/opt/airflow/dags/scripts/bronze_pipeline.py",
         py_files="/opt/airflow/src.zip",
         jars=(
-        "/opt/spark/extra_jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar,"
-        "/opt/spark/extra_jars/iceberg-aws-bundle-1.6.1.jar,"
-        "/opt/spark/extra_jars/hadoop-aws-3.3.4.jar,"
-        "/opt/spark/extra_jars/aws-java-sdk-bundle-1.12.262.jar"
+            "/opt/spark/extra_jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar,"
+            "/opt/spark/extra_jars/iceberg-aws-bundle-1.6.1.jar,"
+            "/opt/spark/extra_jars/hadoop-aws-3.3.4.jar,"
+            "/opt/spark/extra_jars/aws-java-sdk-bundle-1.12.262.jar"
         ),
         executor_memory="2g",
         driver_memory="2g",
@@ -36,10 +36,10 @@ with DAG(
         application="/opt/airflow/dags/scripts/silver_pipeline.py",
         py_files="/opt/airflow/src.zip",
         jars=(
-        "/opt/spark/extra_jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar,"
-        "/opt/spark/extra_jars/iceberg-aws-bundle-1.6.1.jar,"
-        "/opt/spark/extra_jars/hadoop-aws-3.3.4.jar,"
-        "/opt/spark/extra_jars/aws-java-sdk-bundle-1.12.262.jar"
+            "/opt/spark/extra_jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar,"
+            "/opt/spark/extra_jars/iceberg-aws-bundle-1.6.1.jar,"
+            "/opt/spark/extra_jars/hadoop-aws-3.3.4.jar,"
+            "/opt/spark/extra_jars/aws-java-sdk-bundle-1.12.262.jar"
         ),
         executor_memory="2g",
         driver_memory="2g",
@@ -51,10 +51,10 @@ with DAG(
         application="/opt/airflow/dags/scripts/gold_pipeline.py",
         py_files="/opt/airflow/src.zip",
         jars=(
-        "/opt/spark/extra_jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar,"
-        "/opt/spark/extra_jars/iceberg-aws-bundle-1.6.1.jar,"
-        "/opt/spark/extra_jars/hadoop-aws-3.3.4.jar,"
-        "/opt/spark/extra_jars/aws-java-sdk-bundle-1.12.262.jar"
+            "/opt/spark/extra_jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar,"
+            "/opt/spark/extra_jars/iceberg-aws-bundle-1.6.1.jar,"
+            "/opt/spark/extra_jars/hadoop-aws-3.3.4.jar,"
+            "/opt/spark/extra_jars/aws-java-sdk-bundle-1.12.262.jar"
         ),
         executor_memory="2g",
         driver_memory="2g",

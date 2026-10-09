@@ -2,10 +2,11 @@ import os
 from pyspark.sql import SparkSession
 from src.config.config import ROOT_DIR
 
+
 class SparkClient:
     def __init__(self, env="local"):
         # Determine environment: 'local' (default) or 'docker'
-        env = "docker"
+        env = "local"
 
         # Define endpoints based on the environment
         if env == "docker":
@@ -60,7 +61,7 @@ class SparkClient:
             .config("spark.hadoop.fs.s3a.region", "us-east-1")
             .getOrCreate()
         )
-        
+
     def read_json(self, path):
         return self.spark.read.json(path)
 

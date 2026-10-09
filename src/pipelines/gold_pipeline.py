@@ -7,6 +7,7 @@ from src.pipelines.pipeline_runner import LakehousePipelineRunner
 from src.transform.transform_script import transform_to_gold_daily_orders_by_country
 from src.client.spark_client import SparkClient
 
+
 def run_gold_pipeline():
     spark_client = SparkClient()
     runner = LakehousePipelineRunner(spark_client)
