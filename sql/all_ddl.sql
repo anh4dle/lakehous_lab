@@ -80,3 +80,10 @@ DROP TABLE IF EXISTS iceberg.metadata.ingestion_registry;
 ) USING iceberg
 
 
+CREATE TABLE IF NOT EXISTS iceberg.ops.quarantine_dlq (
+    pipeline_string    STRING,
+    raw_payload        STRING,     -- The entire malformed row serialized as JSON
+    _error_reason      STRING,
+    _quarantine_timestamp TIMESTAMP
+)
+USING iceberg;

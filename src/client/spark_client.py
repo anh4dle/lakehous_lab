@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 class SparkClient:
     def __init__(self, env="local"):
         # Determine environment: 'local' (default) or 'docker'
-        env = "local"
+        env = "docker"
 
         # Define endpoints based on the environment
         if env == "docker":
@@ -82,3 +82,5 @@ class SparkClient:
                 if statement.strip():
                     self.spark.sql(statement)
                     logger.info("SQL executed: %s", statement)
+                    
+

@@ -1,5 +1,4 @@
 # `contracts.py`
-import pandera.pyspark as pa
 from pandera.pyspark import Column, DataFrameSchema
 from pyspark.sql.types import (
     StringType,
@@ -12,6 +11,10 @@ from pyspark.sql.types import (
     DecimalType,
     DateType,
 )
+from pyspark.sql import DataFrame
+import pandera.errors
+from src.core.logger import get_logger
+logger = get_logger(__name__)
 
 
 # ============================================================
@@ -157,10 +160,41 @@ def get_contract(table_name: str) -> DataFrameSchema:
             f"Available contracts: {list(CONTRACTS)}"
         ) from None
 
-
-def validate_dataframe(df, table_name: str):
-    """Validate a Spark DataFrame against its registered contract."""
-
+def validate_and_split_dataframe(df: DataFrame, table_name: str) -> tuple[DataFrame, DataFrame]:
+    """
+    Validates a DataFrame against a Pandera contract. 
+    Splits it into (clean_df, quarantine_df) if validation fails.
+    """
     contract = get_contract(table_name)
-    return contract.validate(df)
+    
+    try:
+        # 1. Attempt full validation
+        validated_df = contract.validate(df, lazy=True)
+        # If successful, return the original df as clean, and an empty dataframe for DLQ
+        empty_dlq = df.limit(0)
+        return validated_df, empty_dlq
 
+    except pandera.errors.SchemaErrors as err:
+        logger.warning("Schema validation failed for table %s. Isolating bad rows...", table_name)
+        failure_cases = err.failure_cases
+        return handle_row_level_quarantine(df, table_name)
+
+def handle_row_level_quarantine(df: DataFrame, table_name: str) -> tuple[DataFrame, DataFrame]:
+    if "fact_orders" in table_name:
+        # Example rule: amount must be >= 0, customer_id and order_id must not be null
+        clean_df = df.filter(
+            (df.amount >= 0.0) & 
+            (df.customer_id.isNotNull()) & 
+            (df.order_id.isNotNull())
+        )
+        quarantine_df = df.subtract(clean_df)
+        return clean_df, quarantine_df
+        
+    elif "daily_orders_by_country" in table_name:
+        clean_df = df.filter(df.event_id.isNotNull() & df.customer.customer_id.isNotNull()
+                             & (df.total_amount >= 0.0) & (df.avg_order_value >= 0.0))
+        quarantine_df = df.subtract(clean_df)
+        return clean_df, quarantine_df
+        
+    # Default fallback: if no specific rule, assume all clean
+    return df, df.limit(0)

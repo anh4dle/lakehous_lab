@@ -2,11 +2,12 @@
 from datetime import datetime, timedelta
 from typing import Callable, List
 from pyspark.sql import DataFrame
+from pyspark.sql.functions import lit, current_timestamp
 from src.client.spark_client import SparkClient
 from src.utils.registry import get_last_processed_date, update_registry_table
 from src.utils.spark_io import read_new_data, write_to_iceberg, get_max_available_date
 from src.core.logger import get_logger
-from src.utils.validation import validate_dataframe
+from src.utils.validation import validate_and_split_dataframe
 
 logger = get_logger(__name__)
 
@@ -43,8 +44,25 @@ class LakehousePipelineRunner:
             pipeline_name=pipeline_name,
             source_type=source_type,
         )
-        df_source = validate_dataframe(df_source, target_table)
-
+        df_source, df_quarantine = validate_and_split_dataframe(df_source, target_table)
+        if df_quarantine and df_quarantine.count() > 0:
+            logger.error(
+                "Found %d malformed rows for pipeline %s. Routing to DLQ.",
+                df_quarantine.count(),
+                pipeline_name,
+            )
+            # Add an error metadata column for auditing
+            quarantine_with_meta = df_quarantine.withColumn(
+                "_error_reason", lit("Data Validation Failure")
+            ).withColumn(
+                "_quarantine_timestamp", current_timestamp()
+            )
+            # Write to your DLQ Iceberg table
+            write_to_iceberg(
+                df=quarantine_with_meta,
+                table_name="iceberg.ops.quarantine_dlq",
+                primary_keys=["event_id"], # or unique identifier
+            )
         if df_source and df_source.count() > 0:
             df_transformed = transform_fn(df_source)
             try:
