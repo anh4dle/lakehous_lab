@@ -166,10 +166,13 @@ def validate_and_split_dataframe(df: DataFrame, table_name: str) -> tuple[DataFr
     Splits it into (clean_df, quarantine_df) if validation fails.
     """
     contract = get_contract(table_name)
-    
     try:
-        # 1. Attempt full validation
+        # FIX: Pass df positionally instead of using check_obj=df
+        if df is None:
+            logger.info("Empty dataframe passed to validate_and_split_dataframe")
+            return df, None
         validated_df = contract.validate(df, lazy=True)
+        
         # If successful, return the original df as clean, and an empty dataframe for DLQ
         empty_dlq = df.limit(0)
         return validated_df, empty_dlq

@@ -1,16 +1,14 @@
 import os
 from pyspark.sql import SparkSession
-from src.core.config import ROOT_DIR
+from src.core.config import ROOT_DIR, RUN_MODE
 from src.core.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class SparkClient:
-    def __init__(self, env="local"):
+    def __init__(self, env=RUN_MODE):
         # Determine environment: 'local' (default) or 'docker'
-        env = "docker"
-
         # Define endpoints based on the environment
         if env == "docker":
             s3_endpoint = os.getenv("S3_ENDPOINT", "http://minio:9000")

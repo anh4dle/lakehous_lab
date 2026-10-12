@@ -1,0 +1,6 @@
+minio>=7.2.20
+pandas==2.2.3
+pandera[pyspark]>=0.34.1
+pyarrow<16.0.0
+pyspark==3.5.4
+ruff>=0.15.20

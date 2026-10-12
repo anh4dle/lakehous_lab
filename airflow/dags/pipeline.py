@@ -80,14 +80,27 @@ SPARK_JARS = (
     "/opt/spark/extra_jars/hadoop-aws-3.3.4.jar,"
     "/opt/spark/extra_jars/aws-java-sdk-bundle-1.12.262.jar"
 )
-
 spark_common_args = {
     "conn_id": "spark_default",
     "py_files": "/opt/airflow/src.zip",
     "jars": SPARK_JARS,
-    "executor_memory": "2g",
+    "executor_memory": "3g",
     "driver_memory": "2g",
+    "executor_cores": 2,
+    "total_executor_cores": 4,
+    "conf": {
+        "spark.executor.memoryOverhead": "1g",
+        "spark.sql.execution.arrow.maxRecordsPerBatch": "5000",
+        "spark.task.maxFailures": "8",   # optional: more retries while you debug
+    },
 }
+# spark_common_args = {
+#     "conn_id": "spark_default",
+#     "py_files": "/opt/airflow/src.zip",
+#     "jars": SPARK_JARS,
+#     "executor_memory": "1g",
+#     "driver_memory": "2g",
+# }
 
 with DAG(
     dag_id="lakehouse_pipeline",

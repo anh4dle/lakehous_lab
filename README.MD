@@ -61,8 +61,9 @@ lakehouse_lab/
     - Python 3.10+ (for local script execution if running outside containers).
 
 0. zip src folder when changes code: zip src code to provide the dependency for Spark
-rm -f src.zip
-zip -r src.zip src
+rm src.zip
+find src -type d -name "__pycache__" -exec rm -r {} +
+zip -r src.zip src/
 
 1. Environment Setup
 Clone the repository and spin up the containerized stack:

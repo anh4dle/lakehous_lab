@@ -29,7 +29,6 @@ def get_max_available_date(
     Iceberg:
         MAX(DATE(event_time))
     """
-
     # ------------------------------------------------------------------
     # RAW / MINIO, get the max partition date from the S3 bucket
     # ------------------------------------------------------------------
