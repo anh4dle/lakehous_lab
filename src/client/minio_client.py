@@ -5,8 +5,10 @@ from minio.error import S3Error
 from datetime import date
 import re
 from urllib.parse import urlsplit
+from src.core.logger import get_logger
 
 DATE_PARTITION_PATTERN = re.compile(r"^dt=(\d{4}-\d{2}-\d{2})$")
+logger = get_logger(__name__)
 
 
 class MinioClient:
@@ -34,11 +36,11 @@ class MinioClient:
         try:
             if not self.client.bucket_exists(bucket_name):
                 self.client.make_bucket(bucket_name)
-                print(f"Bucket '{bucket_name}' created successfully.")
+                logger.info("Bucket '%s' created successfully.", bucket_name)
             else:
-                print(f"Bucket '{bucket_name}' already exists.")
-        except S3Error as e:
-            print(f"Error checking/creating bucket: {e}")
+                logger.info("Bucket '%s' already exists.", bucket_name)
+        except S3Error:
+            logger.exception("Error checking/creating bucket '%s'.", bucket_name)
             raise
 
     def upload_file(self, local_path: str, bucket_name: str, object_name: str) -> None:
@@ -48,11 +50,14 @@ class MinioClient:
             self.client.fput_object(
                 bucket_name=bucket_name, object_name=object_name, file_path=local_path
             )
-            print(
-                f"Successfully uploaded {local_path} to s3://{bucket_name}/{object_name}"
+            logger.info(
+                "Successfully uploaded %s to s3://%s/%s",
+                local_path,
+                bucket_name,
+                object_name,
             )
-        except S3Error as e:
-            print(f"Failed to upload {local_path}: {e}")
+        except S3Error:
+            logger.exception("Failed to upload %s.", local_path)
             raise
 
     def upload_directory(
@@ -105,7 +110,7 @@ class MinioClient:
         if prefix:
             prefix += "/"
 
-        print(f"Checking Raw max date for s3://{bucket_name}/{prefix}")
+        logger.info("Checking Raw max date for s3://%s/%s", bucket_name, prefix)
         partition_pattern = re.compile(r"^dt=(\d{4}-\d{2}-\d{2})$")
         max_date = None
         try:
@@ -142,12 +147,12 @@ class MinioClient:
                 if max_date is None or partition_date > max_date:
                     max_date = partition_date
 
-            print(f"Raw max available date: {max_date}")
+            logger.info("Raw max available date: %s", max_date)
 
             return max_date
 
-        except S3Error as exc:
-            print(f"Failed to list MinIO partitions: {exc}")
+        except S3Error:
+            logger.exception("Failed to list MinIO partitions.")
             raise
 
     def list_raw_partition_dates(self, source_uri: str) -> list[date]:
@@ -174,7 +179,7 @@ class MinioClient:
         if prefix:
             prefix += "/"
 
-        print(f"Listing Raw partitions: s3://{bucket_name}/{prefix}")
+        logger.info("Listing Raw partitions: s3://%s/%s", bucket_name, prefix)
 
         partition_dates = set()
 
@@ -217,13 +222,10 @@ class MinioClient:
                     partition_dates.add(partition_date)
 
             result = sorted(partition_dates)
-
-            print(f"Available Raw partition dates: {result}")
-
             return result
 
-        except S3Error as exc:
-            print(
-                f"Failed to list Raw partitions at s3://{bucket_name}/{prefix}: {exc}"
+        except S3Error:
+            logger.exception(
+                "Failed to list Raw partitions at s3://%s/%s", bucket_name, prefix
             )
             raise

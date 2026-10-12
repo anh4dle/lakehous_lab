@@ -1,12 +1,10 @@
-from src.config.config import CustomerBronzeConfig, OrderBronzeConfig
+from src.core.config import CustomerBronzeConfig, OrderBronzeConfig
 from src.pipelines.pipeline_runner import LakehousePipelineRunner
-from src.transform.transform_script import (
+from src.utils.transform_script import (
     transform_to_bronze_customer_events,
     transform_to_bronze_orders_events,
 )
 from src.client.spark_client import SparkClient
-from src.client.minio_client import MinioClient
-
 
 def run_bronze_pipeline():
     # Process Customer Bronze

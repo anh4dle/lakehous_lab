@@ -1,4 +1,5 @@
 from pyspark.sql import DataFrame
+from pyspark.sql.window import Window
 from pyspark.sql.functions import (
     col,
     struct,
@@ -9,6 +10,7 @@ from pyspark.sql.functions import (
     sum as _sum,
     lit,
     to_timestamp,
+    row_number
 )
 from datetime import datetime, timezone
 
@@ -127,7 +129,11 @@ def transform_to_gold_daily_orders_by_country(
 
     # 2. Join Orders with Customers to map customer_id -> country
     # Note: Select only necessary columns from customer to avoid duplicate event_id/event_time columns
-    customers_lookup = silver_customers_df.select("customer_id", "country").distinct()
+    window_spec = Window.partitionBy("customer_id").orderBy(col("event_time").desc())
+    customers_lookup = silver_customers_df.withColumn("rn", row_number().over(window_spec))\
+        .filter(col("rn") == 1)\
+        .select("customer_id", "country")
+    # customers_lookup = silver_customers_df.select("customer_id", "country").distinct()
 
     joined_df = orders_with_date.join(customers_lookup, on="customer_id", how="inner")
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from src.config.config import (
+from src.core.config import (
     REGISTRY_TABLE,
 )
 

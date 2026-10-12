@@ -1,6 +1,9 @@
 import os
 from pyspark.sql import SparkSession
-from src.config.config import ROOT_DIR
+from src.core.config import ROOT_DIR
+from src.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class SparkClient:
@@ -78,4 +81,4 @@ class SparkClient:
             for statement in sql.split(";"):
                 if statement.strip():
                     self.spark.sql(statement)
-                    print("SQL executed:", statement)
+                    logger.info("SQL executed: %s", statement)

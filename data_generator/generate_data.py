@@ -3,6 +3,9 @@ import uuid
 import random
 from datetime import datetime, timedelta, date
 from pathlib import Path
+from src.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 OUTPUT = Path("data_generator/output")
 STATE_FILE = Path("state.json")
@@ -129,17 +132,17 @@ def run_simulation(num_days=7):
         c = generate_customers_for_day(state, current_day, customers)
         o = generate_orders_for_day(state, current_day, orders)
 
-        print(f"[{current_day}] customers={c}, orders={o}")
+        logger.info("[%s] customers=%s, orders=%s", current_day, c, o)
 
         total_c += c
         total_o += o
     state["last_date"] = current_day.strftime("%Y-%m-%d")
-    print("Showing state", state)
+    logger.info("Showing state %s", state)
     save_state(state)
 
-    print("\nDONE")
-    print(f"Total customers: {total_c}")
-    print(f"Total orders: {total_o}")
+    logger.info("DONE")
+    logger.info("Total customers: %s", total_c)
+    logger.info("Total orders: %s", total_o)
 
 
 # -------------------------

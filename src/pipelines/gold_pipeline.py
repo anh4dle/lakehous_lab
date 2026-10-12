@@ -1,10 +1,10 @@
-from src.config.config import (
+from src.core.config import (
     CustomerSilverConfig,
     DailyOrdersGoldConfig,
     OrderSilverConfig,
 )
 from src.pipelines.pipeline_runner import LakehousePipelineRunner
-from src.transform.transform_script import transform_to_gold_daily_orders_by_country
+from src.utils.transform_script import transform_to_gold_daily_orders_by_country
 from src.client.spark_client import SparkClient
 
 

@@ -1,41 +1,166 @@
-from pyspark.sql import DataFrame
-from pyspark.sql.types import StructField, StructType
-from src.client.spark_client import SparkClient
+# `contracts.py`
+import pandera.pyspark as pa
+from pandera.pyspark import Column, DataFrameSchema
+from pyspark.sql.types import (
+    StringType,
+    TimestampType,
+    StructType,
+    StructField,
+    FloatType,
+    IntegerType,
+    LongType,
+    DecimalType,
+    DateType,
+)
 
 
-def validate_schema(
-    spark_client: SparkClient,
-    source_df: DataFrame,
-    target_table_name: str,
-) -> None:
-    """
-    Validate that the source DataFrame schema matches the target Iceberg table schema.
-    """
-    print("Showing source schema:")
-    source_df.printSchema()
+# ============================================================
+# Shared helpers
+# ============================================================
 
-    target_df: DataFrame = spark_client.spark.table(target_table_name)
-    target_schema: StructType = target_df.schema
-    print("Showing target schema:", target_schema)
+def nullable_column(dtype):
+    """Create a nullable column, matching the supplied DDL."""
+    return Column(dtype=dtype, nullable=True)
 
-    source_schema: StructType = source_df.schema
 
-    # 1. Guard check: Ensure field counts match prior to zipping
-    if len(source_schema.fields) != len(target_schema.fields):
+# ============================================================
+# BRONZE: fact_customer_events
+# Table: iceberg.bronze.fact_customer_events
+# ============================================================
+
+CUSTOMER_STRUCT = StructType([
+    StructField("customer_id", StringType(), True),
+    StructField("name", StringType(), True),
+    StructField("email", StringType(), True),
+    StructField("country", StringType(), True),
+    StructField("created_at", StringType(), True),
+])
+
+FACT_CUSTOMER_EVENTS = DataFrameSchema(
+    {
+        "event_id": nullable_column(StringType()),
+        "event_time": nullable_column(TimestampType()),
+        "_ingested_at": nullable_column(TimestampType()),
+    },
+    strict=True,
+    coerce=False,
+)
+
+
+# ============================================================
+# BRONZE: fact_orders_events
+# Table: iceberg.bronze.fact_orders_events
+# ============================================================
+
+ORDER_STRUCT = StructType([
+    StructField("order_id", StringType(), True),
+    StructField("customer_id", StringType(), True),
+    StructField("amount", FloatType(), True),
+    StructField("status", StringType(), True),
+    StructField("items", IntegerType(), True),
+    StructField("created_at", StringType(), True),
+])
+
+FACT_ORDERS_EVENTS = DataFrameSchema(
+    {
+        "event_id": nullable_column(StringType()),
+        "event_time": nullable_column(TimestampType()),
+        "_ingested_at": nullable_column(TimestampType()),
+    },
+    strict=True,
+    coerce=False,
+)
+
+
+# ============================================================
+# SILVER: dim_customer
+# Table: iceberg.silver.dim_customer
+# ============================================================
+
+DIM_CUSTOMER = DataFrameSchema(
+    {
+        "event_id": nullable_column(StringType()),
+        "event_time": nullable_column(TimestampType()),
+        "customer_id": nullable_column(StringType()),
+        "name": nullable_column(StringType()),
+        "email": nullable_column(StringType()),
+        "country": nullable_column(StringType()),
+        "_ingested_at": nullable_column(TimestampType()),
+    },
+    strict=True,
+    coerce=False,
+)
+
+
+# ============================================================
+# SILVER: fact_orders
+# Table: iceberg.silver.fact_orders
+# ============================================================
+
+FACT_ORDERS = DataFrameSchema(
+    {
+        "event_id": nullable_column(StringType()),
+        "event_time": nullable_column(TimestampType()),
+        "customer_id": nullable_column(StringType()),
+        "order_id": nullable_column(StringType()),
+        "amount": nullable_column(DecimalType(18, 2)),
+        "status": nullable_column(StringType()),
+        "items": nullable_column(IntegerType()),
+        "_ingested_at": nullable_column(TimestampType()),
+    },
+    strict=True,
+    coerce=False,
+)
+
+
+# ============================================================
+# GOLD: daily_orders_by_country
+# Table: iceberg.gold.daily_orders_by_country
+# ============================================================
+
+DAILY_ORDERS_BY_COUNTRY = DataFrameSchema(
+    {
+        "report_date": nullable_column(DateType()),
+        "country": nullable_column(StringType()),
+        "order_count": nullable_column(LongType()),
+        "total_amount": nullable_column(DecimalType(18, 2)),
+        "avg_order_value": nullable_column(DecimalType(18, 2)),
+        "distinct_customers": nullable_column(LongType()),
+    },
+    strict=True,
+    coerce=False,
+)
+
+
+
+# ============================================================
+# Contract registry
+# ============================================================
+
+CONTRACTS = {
+    "iceberg.bronze.fact_customer_events": FACT_CUSTOMER_EVENTS,
+    "iceberg.bronze.fact_orders_events": FACT_ORDERS_EVENTS,
+    "iceberg.silver.dim_customer": DIM_CUSTOMER,
+    "iceberg.silver.fact_orders": FACT_ORDERS,
+    "iceberg.gold.daily_orders_by_country": DAILY_ORDERS_BY_COUNTRY,
+}
+
+
+def get_contract(table_name: str) -> DataFrameSchema:
+    """Return a contract by layer.table name."""
+
+    try:
+        return CONTRACTS[table_name]
+    except KeyError:
         raise ValueError(
-            f"Schema length mismatch: source has {len(source_schema.fields)} fields, "
-            f"target '{target_table_name}' has {len(target_schema.fields)} fields."
-        )
+            f"Unknown table contract: {table_name!r}. "
+            f"Available contracts: {list(CONTRACTS)}"
+        ) from None
 
-    # 2. Field-by-field position and type validation
-    source_field: StructField
-    target_field: StructField
-    for source_field, target_field in zip(source_schema, target_schema):
-        assert source_field.name == target_field.name, (
-            f"Field name mismatch: expected '{target_field.name}', "
-            f"got '{source_field.name}'"
-        )
-        assert source_field.dataType == target_field.dataType, (
-            f"DataType mismatch for field '{source_field.name}': "
-            f"expected {target_field.dataType}, got {source_field.dataType}"
-        )
+
+def validate_dataframe(df, table_name: str):
+    """Validate a Spark DataFrame against its registered contract."""
+
+    contract = get_contract(table_name)
+    return contract.validate(df)
+

@@ -1,11 +1,11 @@
-from src.config.config import (
+from src.core.config import (
     CustomerSilverConfig,
     OrderSilverConfig,
     CustomerBronzeConfig,
     OrderBronzeConfig,
 )
 from src.pipelines.pipeline_runner import LakehousePipelineRunner
-from src.transform.transform_script import (
+from src.utils.transform_script import (
     transform_to_silver_dim_customer,
     transform_to_silver_fact_orders,
 )
@@ -26,14 +26,14 @@ def run_silver_pipeline():
     )
 
     # # Process Order Bronze
-    # runner.run_single_source_pipeline(
-    #     pipeline_name=OrderSilverConfig.PIPELINE_NAME,
-    #     input_path=OrderBronzeConfig.TABLE_NAME,
-    #     source_type=OrderSilverConfig.SOURCE_TYPE,
-    #     target_table=OrderSilverConfig.TABLE_NAME,
-    #     primary_keys=["event_id"],
-    #     transform_fn=transform_to_silver_fact_orders,
-    # )
+    runner.run_single_source_pipeline(
+        pipeline_name=OrderSilverConfig.PIPELINE_NAME,
+        input_path=OrderBronzeConfig.TABLE_NAME,
+        source_type=OrderSilverConfig.SOURCE_TYPE,
+        target_table=OrderSilverConfig.TABLE_NAME,
+        primary_keys=["event_id"],
+        transform_fn=transform_to_silver_fact_orders,
+    )
 
 
 if __name__ == "__main__":

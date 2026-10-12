@@ -2,10 +2,13 @@
 from datetime import datetime, timedelta
 from typing import Callable, List
 from pyspark.sql import DataFrame
-from src.client.minio_client import MinioClient
 from src.client.spark_client import SparkClient
 from src.utils.registry import get_last_processed_date, update_registry_table
 from src.utils.spark_io import read_new_data, write_to_iceberg, get_max_available_date
+from src.core.logger import get_logger
+from src.utils.validation import validate_dataframe
+
+logger = get_logger(__name__)
 
 
 class LakehousePipelineRunner:
@@ -24,7 +27,7 @@ class LakehousePipelineRunner:
         transform_fn: Callable[[DataFrame], DataFrame],
     ):
         """Runs single-input pipelines (e.g., Raw -> Bronze, Bronze -> Silver)."""
-        print(f"=== Starting Pipeline: {pipeline_name} ===")
+        logger.info("Starting pipeline: %s", pipeline_name)
         source_max_date = get_max_available_date(
             self.spark_client, input_path, source_type
         )
@@ -40,21 +43,24 @@ class LakehousePipelineRunner:
             pipeline_name=pipeline_name,
             source_type=source_type,
         )
+        df_source = validate_dataframe(df_source, target_table)
 
         if df_source and df_source.count() > 0:
             df_transformed = transform_fn(df_source)
+            try:
+                write_to_iceberg(
+                    df=df_transformed,
+                    table_name=target_table,
+                    primary_keys=primary_keys,
+                )
 
-            write_to_iceberg(
-                df=df_transformed,
-                table_name=target_table,
-                primary_keys=primary_keys,
-            )
-
-            next_checkpoint = (source_max_date + timedelta(days=1)).strftime("%Y-%m-%d")
-            update_registry_table(self.spark_client, next_checkpoint, pipeline_name)
-            print(f"Success: Processed pipeline {pipeline_name}")
+                next_checkpoint = (source_max_date + timedelta(days=1)).strftime("%Y-%m-%d")
+                update_registry_table(self.spark_client, next_checkpoint, pipeline_name)
+                logger.info("Successfully processed pipeline %s", pipeline_name)
+            except Exception:
+                logger.exception("Failed to process pipeline %s", pipeline_name)
         else:
-            print(f"No new data found for {pipeline_name}")
+            logger.info("No new data found for %s", pipeline_name)
 
     def run_multi_source_pipeline(
         self,
@@ -65,7 +71,7 @@ class LakehousePipelineRunner:
         transform_fn: Callable[..., DataFrame],
     ):
         """Runs multi-input pipelines (e.g., Silver -> Gold joins)."""
-        print(f"=== Starting Multi-Source Pipeline: {pipeline_name} ===")
+        logger.info("Starting multi-source pipeline: %s", pipeline_name)
 
         max_date_orders = get_max_available_date(
             self.spark_client, sources["silver_orders_df"]
@@ -74,13 +80,16 @@ class LakehousePipelineRunner:
             self.spark_client, sources["silver_customers_df"]
         )
         max_date = min(max_date_orders, max_date_customers)
-        print(
-            f"Max available date for {sources['silver_orders_df']}: {max_date_orders}"
+        logger.info(
+            "Max available date for %s: %s",
+            sources["silver_orders_df"],
+            max_date_orders,
         )
-        print(
-            f"Max available date for {sources['silver_customers_df']}: {max_date_customers}"
+        logger.info(
+            "Max available date for %s: %s",
+            sources["silver_customers_df"],
+            max_date_customers,
         )
-        return
 
         last_date_str = get_last_processed_date(self.spark_client, pipeline_name)
         last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
@@ -91,6 +100,7 @@ class LakehousePipelineRunner:
                 spark_client=self.spark_client,
                 source=table_name,
                 last_processed_date=last_dt,
+                source_max_date=max_date,
                 pipeline_name=pipeline_name,
                 source_type="iceberg",
             )
@@ -105,8 +115,8 @@ class LakehousePipelineRunner:
                 primary_keys=primary_keys,
             )
 
-            next_checkpoint = (last_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+            next_checkpoint = (max_date + timedelta(days=1)).strftime("%Y-%m-%d")
             update_registry_table(self.spark_client, next_checkpoint, pipeline_name)
-            print(f"Success: Processed multi-source pipeline {pipeline_name}")
+            logger.info("Successfully processed multi-source pipeline %s", pipeline_name)
         else:
-            print("Skipping execution: One or more sources contain no new data.")
+            logger.info("Skipping execution: one or more sources contain no new data.")
