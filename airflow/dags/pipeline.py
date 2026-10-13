@@ -19,14 +19,15 @@ spark_common_args = {
     "conn_id": "spark_default",
     "py_files": "/opt/airflow/src.zip",
     "jars": SPARK_JARS,
-    "executor_memory": "2g",
+    "executor_memory": "1g",
     "executor_cores": 1,
-    "total_executor_cores": 4,
+    "total_executor_cores": 1,
     "conf": {
-        "spark.sql.iceberg.vectorization.enabled": "false",
+        "spark.default.parallelism": "2",
+        "spark.sql.shuffle.partitions": "2",
         "spark.executorEnv.MALLOC_ARENA_MAX": "2",
         "spark.executor.extraJavaOptions": "-XX:ErrorFile=/tmp/hs_err_%p.log",
-},
+    },
 }
 # spark_common_args = {
 #     "conn_id": "spark_default",
@@ -42,9 +43,9 @@ with DAG(
     schedule="@daily",
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    max_active_runs=1, max_active_tasks=1
+    max_active_runs=1,
+    max_active_tasks=1,
 ) as dag:
-    
     raw_to_bronze = SparkSubmitOperator(
         task_id="raw_to_bronze",
         application="/opt/airflow/dags/scripts/bronze_pipeline.py",

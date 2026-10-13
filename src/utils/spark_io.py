@@ -38,43 +38,42 @@ def get_max_available_date(
     # ------------------------------------------------------------------
     # ICEBERG
     # ------------------------------------------------------------------
-    # if source_type == "iceberg":
-    #     logger.info("Checking Iceberg max date: %s", input_path)
-    #     row = (
-    #         spark_client.spark.table(input_path)
-    #         .select(spark_max(to_date(col("event_time"))).alias("max_date"))
-    #         .first()
-    #     )
-    #     if row is None or row["max_date"] is None:
-    #         logger.info("Iceberg table contains no data: %s", input_path)
-    #         return None
-
-    #     max_date = row["max_date"]
-    #     logger.info("Iceberg source max available date: %s", max_date)
-    #     return max_date
     if source_type == "iceberg":
         logger.info("Checking Iceberg max date: %s", input_path)
         row = (
-            spark_client.spark.table(input_path)
-            .select(
-                spark_max(col("event_time")).alias("max_event_time")
-            )
+            spark_client.spark.read.format("iceberg")
+            .load(f"{input_path}.partitions")
+            .selectExpr("max(partition.event_time_day) AS max_event_time")
             .first()
         )
+        # row = (
+        #     spark_client.spark.table(input_path)
+        #     .select(
+        #         spark_max(col("event_time")).alias("max_event_time")
+        #     )
+        #     .first()
+        # )
         if row is None or row["max_event_time"] is None:
             logger.info("Iceberg table contains no data: %s", input_path)
             return None
         max_event_time = row["max_event_time"]
         # Convert to a Python date without applying to_date() in Spark.
-        max_date = max_event_time.date()
+        if isinstance(max_event_time, datetime):
+            max_date = max_event_time.date()
+        elif isinstance(max_event_time, date):
+            max_date = max_event_time
         logger.info("Iceberg source max available date: %s", max_date)
         return max_date
     raise ValueError(
         f"Unsupported source_type: {source_type}. Expected 'raw' or 'iceberg'."
     )
 
+
 def write_to_iceberg(
-    df: DataFrame, table_name: str, primary_keys: Union[str, List[str]] = "event_id"
+    df: DataFrame,
+    table_name: str,
+    primary_keys: Union[str, List[str]] = "event_id",
+    partition_date_col: str = "event_time",
 ):
     """
     Executes an idempotent MERGE INTO against an Iceberg table using
@@ -83,15 +82,29 @@ def write_to_iceberg(
     if isinstance(primary_keys, str):
         primary_keys = [primary_keys]
 
+    if "gold" in table_name:
+        partition_date_col = "report_date"
     # 1. Deduplicate batch on the table's specific composite key
     df_deduped = df.dropDuplicates(primary_keys)
 
-    # 2. Build dynamic join predicate: "target.key1 = source.key1 AND target.key2 = source.key2"
+    # 2. Get min/max dates from the incoming batch to prune target partitions
+    date_bounds = df_deduped.selectExpr(
+        f"MIN(CAST({partition_date_col} AS DATE)) as min_d",
+        f"MAX(CAST({partition_date_col} AS DATE)) as max_d",
+    ).first()
+
+    min_date = date_bounds["min_d"]
+    max_date = date_bounds["max_d"]
+
+    # 3. Build join predicate: "target.key1 = source.key1 AND target.key2 = source.key2"
     join_predicate = " AND ".join(
         [f"target.{key} = source.{key}" for key in primary_keys]
     )
+    # 4. Add date range filter to the join predicate
+    if min_date and max_date:
+        join_predicate += f" AND CAST(target.{partition_date_col} AS DATE) BETWEEN '{min_date}' AND '{max_date}'"
 
-    # 3. Register temporary view
+    # 5. Register temporary view
     temp_view_name = f"staging_{uuid.uuid4().hex[:8]}"
     df_deduped.createOrReplaceTempView(temp_view_name)
 

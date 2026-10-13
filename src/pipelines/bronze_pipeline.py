@@ -6,6 +6,7 @@ from src.utils.transform_script import (
 )
 from src.client.spark_client import SparkClient
 
+
 def run_bronze_pipeline():
     # Process Customer Bronze
     spark_client = SparkClient()

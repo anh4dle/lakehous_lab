@@ -83,5 +83,3 @@ class SparkClient:
                 if statement.strip():
                     self.spark.sql(statement)
                     logger.info("SQL executed: %s", statement)
-                    
-

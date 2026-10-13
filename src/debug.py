@@ -2,7 +2,7 @@ from src.client.spark_client import SparkClient
 
 
 client = SparkClient()
-spark = client.spark  
+spark = client.spark
 table = "iceberg.metadata.ingestion_registry"
 spark.sql(f"""
     ALTER TABLE {table}

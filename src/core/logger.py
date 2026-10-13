@@ -3,15 +3,17 @@ import sys
 from pathlib import Path
 
 
-def get_logger(name: str, level: str = "INFO", log_file: Path | None = None) -> logging.Logger:
+def get_logger(
+    name: str, level: str = "INFO", log_file: Path | None = None
+) -> logging.Logger:
     """
     Creates or retrieves a structured logger with console and optional file handlers.
-    
+
     :param name: Typically pass __name__ to track which module logged the event.
     :param level: Logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL').
     :param log_file: Optional path to save logs on disk.
     """
-    #Create or retrieve a logger with the specified name
+    # Create or retrieve a logger with the specified name
     logger = logging.getLogger(name)
 
     # Call get_logger won't add the same handler twice but return the existing one
@@ -26,7 +28,7 @@ def get_logger(name: str, level: str = "INFO", log_file: Path | None = None) -> 
     # Example output: 2026-07-29 09:25:00 | INFO     | [src.services.ingestion] | Processing item 42
     formatter = logging.Formatter(
         fmt="%(asctime)s | %(levelname)-8s | [%(name)s] | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     # Handler 1: Terminal (stdout)
