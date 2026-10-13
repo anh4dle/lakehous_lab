@@ -60,6 +60,9 @@ class SparkClient:
             )
             .config("spark.hadoop.fs.s3a.endpoint.region", "us-east-1")
             .config("spark.hadoop.fs.s3a.region", "us-east-1")
+            # .config("spark.sql.iceberg.vectorization.enabled", "false")
+            .config("spark.sql.codegen.wholeStage", "false")
+            # .config("spark.sql.adaptive.enabled", "false")
             .getOrCreate()
         )
 

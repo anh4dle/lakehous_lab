@@ -10,7 +10,7 @@ def generate_data_to_minio():
 
 
 def main():
-    # generate_data_to_minio()
+    generate_data_to_minio()
     # spark_client = SparkClient()
     # spark_client.bootstrap_sql_tables()
     pass

@@ -110,61 +110,37 @@ services:
       airflow-init:
         condition: service_completed_successfully
     restart: always
-
-
   airflow-scheduler:
     <<: *airflow-common
-
     command: scheduler
-
     depends_on:
       <<: *airflow-common-depends-on
-
       airflow-init:
         condition: service_completed_successfully
-
     restart: always
-
-
   airflow-dag-processor:
     <<: *airflow-common
-
     command: dag-processor
-
     depends_on:
       <<: *airflow-common-depends-on
-
       airflow-init:
         condition: service_completed_successfully
-
     restart: always
-
-
   airflow-worker:
     <<: *airflow-common
-
     command: celery worker
-
     environment:
       <<: *airflow-common-env
-
       DUMB_INIT_SETSID: "0"
-
     depends_on:
       <<: *airflow-common-depends-on
-
       airflow-apiserver:
         condition: service_healthy
-
       airflow-init:
         condition: service_completed_successfully
-
       spark:
         condition: service_started
-
     restart: always
-
-
   airflow-triggerer:
     <<: *airflow-common
     command: triggerer
@@ -183,7 +159,7 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
     user: "0:0"
   minio:
-    image: minio/minio
+    image: elestio/minio
     container_name: minio
     command: server /data --console-address ":9001"
     ports:
@@ -211,10 +187,14 @@ services:
       - AWS_REGION=us-east-1
       
       # Persistence via SQLite JDBC catalog
+      # - CATALOG_CATALOG__IMPL=org.apache.iceberg.jdbc.JdbcCatalog
+      # - CATALOG_URI=jdbc:sqlite:/var/lib/iceberg/catalog.db
+      # - CATALOG_JDBC_USER=user
+      # - CATALOG_JDBC_PASSWORD=password
       - CATALOG_CATALOG__IMPL=org.apache.iceberg.jdbc.JdbcCatalog
-      - CATALOG_URI=jdbc:sqlite:/var/lib/iceberg/catalog.db
-      - CATALOG_JDBC_USER=user
-      - CATALOG_JDBC_PASSWORD=password
+      - CATALOG_URI=jdbc:postgresql://postgres:5432/iceberg_catalog
+      - CATALOG_JDBC_USER=airflow
+      - CATALOG_JDBC_PASSWORD=airflow
     volumes:
       - iceberg_catalog_data:/var/lib/iceberg
 volumes:

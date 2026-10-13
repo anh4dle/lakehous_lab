@@ -38,18 +38,35 @@ def get_max_available_date(
     # ------------------------------------------------------------------
     # ICEBERG
     # ------------------------------------------------------------------
+    # if source_type == "iceberg":
+    #     logger.info("Checking Iceberg max date: %s", input_path)
+    #     row = (
+    #         spark_client.spark.table(input_path)
+    #         .select(spark_max(to_date(col("event_time"))).alias("max_date"))
+    #         .first()
+    #     )
+    #     if row is None or row["max_date"] is None:
+    #         logger.info("Iceberg table contains no data: %s", input_path)
+    #         return None
+
+    #     max_date = row["max_date"]
+    #     logger.info("Iceberg source max available date: %s", max_date)
+    #     return max_date
     if source_type == "iceberg":
         logger.info("Checking Iceberg max date: %s", input_path)
         row = (
             spark_client.spark.table(input_path)
-            .select(spark_max(to_date(col("event_time"))).alias("max_date"))
+            .select(
+                spark_max(col("event_time")).alias("max_event_time")
+            )
             .first()
         )
-        if row is None or row["max_date"] is None:
+        if row is None or row["max_event_time"] is None:
             logger.info("Iceberg table contains no data: %s", input_path)
             return None
-
-        max_date = row["max_date"]
+        max_event_time = row["max_event_time"]
+        # Convert to a Python date without applying to_date() in Spark.
+        max_date = max_event_time.date()
         logger.info("Iceberg source max available date: %s", max_date)
         return max_date
     raise ValueError(
@@ -102,7 +119,7 @@ def _as_date(value: date | datetime) -> date:
 def read_new_data(
     spark_client,
     source: str,
-    last_processed_date: datetime,
+    next_date: datetime,
     source_max_date: date | datetime,
     pipeline_name: str,
     source_type: str = "iceberg",
@@ -118,7 +135,7 @@ def read_new_data(
     Iceberg:
         Filter rows by event_time date.
     """
-    start_date = _as_date(last_processed_date) + timedelta(days=1)
+    start_date = _as_date(next_date) + timedelta(days=1)
     end_date = _as_date(source_max_date)
 
     if start_date > end_date:

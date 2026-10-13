@@ -4,7 +4,7 @@ from typing import Callable, List
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit, current_timestamp
 from src.client.spark_client import SparkClient
-from src.utils.registry import get_last_processed_date, update_registry_table
+from src.utils.registry import get_next_date, update_registry_table
 from src.utils.spark_io import read_new_data, write_to_iceberg, get_max_available_date
 from src.core.logger import get_logger
 from src.utils.validation import validate_and_split_dataframe
@@ -33,13 +33,13 @@ class LakehousePipelineRunner:
             self.spark_client, input_path, source_type
         )
 
-        last_date_str = get_last_processed_date(self.spark_client, pipeline_name)
+        last_date_str = get_next_date(self.spark_client, pipeline_name)
         last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
 
         df_source = read_new_data(
             spark_client=self.spark_client,
             source=input_path,
-            last_processed_date=last_dt,
+            next_date=last_dt,
             source_max_date=source_max_date,
             pipeline_name=pipeline_name,
             source_type=source_type,
@@ -109,7 +109,7 @@ class LakehousePipelineRunner:
             max_date_customers,
         )
 
-        last_date_str = get_last_processed_date(self.spark_client, pipeline_name)
+        last_date_str = get_next_date(self.spark_client, pipeline_name)
         last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
 
         read_dfs = {}
@@ -117,7 +117,7 @@ class LakehousePipelineRunner:
             read_dfs[alias] = read_new_data(
                 spark_client=self.spark_client,
                 source=table_name,
-                last_processed_date=last_dt,
+                next_date=last_dt,
                 source_max_date=max_date,
                 pipeline_name=pipeline_name,
                 source_type="iceberg",
