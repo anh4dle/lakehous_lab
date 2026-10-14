@@ -8,7 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 BASE_INPUT_PATH = "s3a://warehouse/raw/"
 REGISTRY_TABLE = "iceberg.metadata.ingestion_registry"
 
-RUN_MODE = "docker"
+RUN_MODE = "local"
 
 
 # --- Bronze Layer Contracts ---
