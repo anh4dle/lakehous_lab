@@ -1,14 +1,15 @@
 # src/engine/base_runner.py
 from datetime import datetime, timedelta
 from pyspark.sql.functions import lit, current_timestamp
-from src.utils.registry import get_next_date, update_registry_table
-from src.utils.spark_io import read_new_data, write_to_iceberg, get_max_available_date
+from src.utils.spark_io import read_new_data, write_to_iceberg, get_max_available_date, get_next_date, update_registry_table
 from src.core.logger import get_logger
 from src.utils.validation import validate_and_split_dataframe
 from contextlib import contextmanager
 from time import perf_counter
+from src.core.config import BaseConfig, ProcessingConfig
 logger = get_logger(__name__)
 import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,36 +29,39 @@ class LakehousePipelineRunner:
 
     def run_single_source_pipeline(
         self,
-        pipeline_name: str,
-        input_path: str,
-        target_table: str,
-        primary_keys: list[str],
-        source_type: str,
-        transform_fn: callable,
+        pipeline_config: BaseConfig,
+        date_plan: ProcessingConfig,
     ):
         total_start = perf_counter()
+        pipeline_name = pipeline_config.PIPELINE_NAME
+        input_path = pipeline_config.INPUT_PATH
+        target_table = pipeline_config.TABLE_NAME
+        primary_keys = pipeline_config.PRIMARY_KEYS
+        source_type = pipeline_config.SOURCE_TYPE
+        transform_fn = pipeline_config.TRANSFORM_FN
         logger.info("Starting single-source pipeline: %s", pipeline_name)
 
         try:
-            with timed_stage(f"{pipeline_name} | get max source date"):
-                source_max_date = get_max_available_date(
-                    self.spark_client, input_path, source_type
-                )
+            # with timed_stage(f"{pipeline_name} | get max source date"):
+            #     source_max_date = get_max_available_date(
+            #         self.spark_client, input_path, source_type
+            #     )
 
-            if source_max_date is None:
-                logger.info("Source table contains no data: %s", input_path)
-                return
+            # if source_max_date is None:
+            #     logger.info("Source table contains no data: %s", input_path)
+            #     return
 
-            with timed_stage(f"{pipeline_name} | get checkpoint"):
-                last_date_str = get_next_date(self.spark_client, pipeline_name)
-                last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
-
+            # with timed_stage(f"{pipeline_name} | get checkpoint"):
+            #     last_date_str = get_next_date(self.spark_client, pipeline_name)
+            #     last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
+            start_dt = date_plan.start_date
+            end_dt = date_plan.end_date
             with timed_stage(f"{pipeline_name} | build source read"):
                 df_source = read_new_data(
                     spark_client=self.spark_client,
                     source=input_path,
-                    next_date=last_dt,
-                    source_max_date=source_max_date,
+                    next_date=start_dt,
+                    source_max_date=end_dt,
                     pipeline_name=pipeline_name,
                     source_type=source_type,
                 )
@@ -95,7 +99,7 @@ class LakehousePipelineRunner:
                     write_to_iceberg(
                         df=quarantine_with_meta,
                         table_name="iceberg.ops.quarantine_dlq",
-                        primary_keys=["event_id"],
+                        primary_keys=primary_keys,
                     )
 
             # Count valid rows (triggers Spark action)
@@ -117,8 +121,6 @@ class LakehousePipelineRunner:
 
             with timed_stage(f"{pipeline_name} | build transformation"):
                 df_transformed = transform_fn(df_source)
-                # Optionally cache or force evaluation if transform_fn has heavy logic
-                # df_transformed.cache()
 
             try:
                 with timed_stage(f"{pipeline_name} | Iceberg write/merge"):
@@ -130,7 +132,7 @@ class LakehousePipelineRunner:
 
                 with timed_stage(f"{pipeline_name} | update registry"):
                     next_checkpoint = (
-                        source_max_date + timedelta(days=1)
+                        end_dt + timedelta(days=1)
                     ).strftime("%Y-%m-%d")
 
                     update_registry_table(
@@ -154,13 +156,15 @@ class LakehousePipelineRunner:
 
     def run_multi_source_pipeline(
         self,
-        pipeline_name: str,
+        pipeline_config: BaseConfig,
         sources: dict,
-        target_table: str,
-        primary_keys: list[str],
-        transform_fn: callable,
     ):
         total_start = perf_counter()
+        pipeline_name = pipeline_config.PIPELINE_NAME
+        target_table = pipeline_config.TABLE_NAME
+        primary_keys = pipeline_config.PRIMARY_KEYS
+        transform_fn = pipeline_config.TRANSFORM_FN
+        
         logger.info("Starting multi-source pipeline: %s", pipeline_name)
 
         try:

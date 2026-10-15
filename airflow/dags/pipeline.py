@@ -29,13 +29,6 @@ spark_common_args = {
         "spark.executor.extraJavaOptions": "-XX:ErrorFile=/tmp/hs_err_%p.log",
     },
 }
-# spark_common_args = {
-#     "conn_id": "spark_default",
-#     "py_files": "/opt/airflow/src.zip",
-#     "jars": SPARK_JARS,
-#     "executor_memory": "1g",
-#     "driver_memory": "2g",
-# }
 
 with DAG(
     dag_id="lakehouse_pipeline",

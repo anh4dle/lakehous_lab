@@ -4,17 +4,6 @@
 ## Architecture Overview
 - The platform uses a decoupled storage and compute model managed via an Iceberg REST catalog and executed through isolated Apache Spark tasks orchestrated by Airflow.
 
-Plaintext
- [ Data Generator ] 
-        │ (JSON Partitions)
-        ▼
-   [ MinIO S3 ] ──► [ Airflow Orchestrator ] ──► [ Spark Submit Operators ]
-                                                         │
-         ┌───────────────────────────────────────────────┴───────────────────────────────┐
-         ▼                                               ▼                               ▼
-[ Bronze Layer (Raw JSON) ]                   [ Silver Layer (Cleaned Facts/Dims) ]     [ Gold Layer (Aggregations) ]
-         │                                               │                               │
-         └───────────► [ Pandera Contracts & DLQ ] ◄─────┴───────────────────────────────┘
 ## Medallion Layers:
 - Bronze Layer: Ingests raw JSON payloads from MinIO partitioned by date (dt=YYYY-MM-DD).
 - Silver Layer: Flattens structs, cleans data types, enforces business-level domain rules via Pandera contracts, and performs idempotent upserts.
@@ -61,18 +50,18 @@ lakehouse_lab/
     - Python 3.10+ (for local script execution if running outside containers).
 
 0. zip src folder when changes code: zip src code to provide the dependency for Spark
+Bash:
 rm src.zip
 find src -type d -name "__pycache__" -exec rm -r {} +
 zip -r src.zip src/
 
 1. Environment Setup
-Clone the repository and spin up the containerized stack:
-
-Bash
+Spin up the containerized stack:
+Bash:
 docker compose up --build -d
 2. Generate Sample Data
 Run the synthetic data generator to simulate multi-day transaction streams:
-Bash
+Bash:
 python -m src.main
 3. Trigger Pipelines via Airflow
 Access the Airflow UI at http://localhost:8080 (default credentials: airflow/airflow), enable the lakehouse_pipeline DAG, and trigger a manual run to execute the end-to-end Medallion transition.

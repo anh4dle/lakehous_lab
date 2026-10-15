@@ -5,11 +5,13 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, to_timestamp
 from typing import List, Union
 from pyspark.sql.functions import (
-    max as spark_max,
     to_date,
 )
 from src.client.minio_client import MinioClient
 from src.core.logger import get_logger
+from src.core.config import (
+    REGISTRY_TABLE,
+)
 
 logger = get_logger(__name__)
 
@@ -46,13 +48,6 @@ def get_max_available_date(
             .selectExpr("max(partition.event_time_day) AS max_event_time")
             .first()
         )
-        # row = (
-        #     spark_client.spark.table(input_path)
-        #     .select(
-        #         spark_max(col("event_time")).alias("max_event_time")
-        #     )
-        #     .first()
-        # )
         if row is None or row["max_event_time"] is None:
             logger.info("Iceberg table contains no data: %s", input_path)
             return None
@@ -132,8 +127,8 @@ def _as_date(value: date | datetime) -> date:
 def read_new_data(
     spark_client,
     source: str,
-    next_date: datetime,
-    source_max_date: date | datetime,
+    start_dt: datetime,
+    end_dt: date | datetime,
     pipeline_name: str,
     source_type: str = "iceberg",
     minio_client: Optional[MinioClient] = None,
@@ -148,23 +143,23 @@ def read_new_data(
     Iceberg:
         Filter rows by event_time date.
     """
-    start_date = _as_date(next_date) + timedelta(days=1)
-    end_date = _as_date(source_max_date)
+    # start_dt = _as_date(next_date) + timedelta(days=1)
+    # end_dt = _as_date(source_max_date)
 
-    if start_date > end_date:
+    if start_dt > end_dt:
         logger.info(
             "No new data for %s. Start date=%s, end date=%s",
             pipeline_name,
-            start_date,
-            end_date,
+            start_dt,
+            end_dt,
         )
         return None
 
     logger.info(
         "Pipeline: %s; processing %s through %s",
         pipeline_name,
-        start_date,
-        end_date,
+        start_dt,
+        end_dt,
     )
 
     # ------------------------------------------------------------------
@@ -176,14 +171,14 @@ def read_new_data(
         dates_to_read = [
             partition_date
             for partition_date in available_dates
-            if start_date <= partition_date <= end_date
+            if start_dt <= partition_date <= end_dt
         ]
 
         if not dates_to_read:
             logger.info(
                 "No Raw partitions found between %s and %s: %s",
-                start_date,
-                end_date,
+                start_dt,
+                end_dt,
                 source,
             )
             return None
@@ -213,8 +208,8 @@ def read_new_data(
 
         df_raw = spark_client.spark.table(source).filter(
             to_date(col("event_time")).between(
-                lit(start_date),
-                lit(end_date),
+                lit(start_dt),
+                lit(end_dt),
             )
         )
 
@@ -242,3 +237,23 @@ def read_new_data(
             to_timestamp(lit(batch_time)),
         )
     )
+
+def get_next_date(spark_client, pipeline_name) -> str:
+    """Retrieve last successful processed date"""
+    df = spark_client.spark.sql(
+        f"""
+        SELECT COALESCE(MAX(next_date), '2026-05-01') as last_date 
+        FROM {REGISTRY_TABLE}
+        WHERE pipeline_name = '{pipeline_name}'
+    """
+    )
+    return df.collect()[0]["last_date"]
+
+
+def update_registry_table(spark_client, max_date: str, pipeline_name):
+    """Record successful load"""
+    control_df = spark_client.spark.createDataFrame(
+        [(pipeline_name, max_date, datetime.now(), "SUCCESS")],
+        ["pipeline_name", "next_date", "load_timestamp", "status"],
+    )
+    control_df.writeTo(REGISTRY_TABLE).append()
