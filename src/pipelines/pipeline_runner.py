@@ -34,34 +34,24 @@ class LakehousePipelineRunner:
     ):
         total_start = perf_counter()
         pipeline_name = pipeline_config.PIPELINE_NAME
-        input_path = pipeline_config.INPUT_PATH
+        SOURCE_NAME = pipeline_config.SOURCE_NAME
         target_table = pipeline_config.TABLE_NAME
         primary_keys = pipeline_config.PRIMARY_KEYS
         source_type = pipeline_config.SOURCE_TYPE
         transform_fn = pipeline_config.TRANSFORM_FN
         logger.info("Starting single-source pipeline: %s", pipeline_name)
-
+        if date_plan is None:
+            logger.info("No new data found for %s", pipeline_name)
+            return
         try:
-            # with timed_stage(f"{pipeline_name} | get max source date"):
-            #     source_max_date = get_max_available_date(
-            #         self.spark_client, input_path, source_type
-            #     )
-
-            # if source_max_date is None:
-            #     logger.info("Source table contains no data: %s", input_path)
-            #     return
-
-            # with timed_stage(f"{pipeline_name} | get checkpoint"):
-            #     last_date_str = get_next_date(self.spark_client, pipeline_name)
-            #     last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
             start_dt = date_plan.start_date
             end_dt = date_plan.end_date
             with timed_stage(f"{pipeline_name} | build source read"):
                 df_source = read_new_data(
                     spark_client=self.spark_client,
-                    source=input_path,
-                    next_date=start_dt,
-                    source_max_date=end_dt,
+                    source=SOURCE_NAME,
+                    start_dt=start_dt,
+                    end_dt=end_dt,
                     pipeline_name=pipeline_name,
                     source_type=source_type,
                 )
@@ -158,38 +148,40 @@ class LakehousePipelineRunner:
         self,
         pipeline_config: BaseConfig,
         sources: dict,
+        plan: ProcessingConfig,
     ):
         total_start = perf_counter()
         pipeline_name = pipeline_config.PIPELINE_NAME
         target_table = pipeline_config.TABLE_NAME
         primary_keys = pipeline_config.PRIMARY_KEYS
         transform_fn = pipeline_config.TRANSFORM_FN
-        
+        start_date = plan.start_date
+        end_date = plan.end_date
         logger.info("Starting multi-source pipeline: %s", pipeline_name)
 
         try:
-            with timed_stage(f"{pipeline_name} | get source max dates"):
-                max_dates = {
-                    alias: get_max_available_date(self.spark_client, table_name)
-                    for alias, table_name in sources.items()
-                }
+            # with timed_stage(f"{pipeline_name} | get source max dates"):
+            #     max_dates = {
+            #         alias: get_max_available_date(self.spark_client, table_name)
+            #         for alias, table_name in sources.items()
+            #     }
 
-                if not max_dates or any(d is None for d in max_dates.values()):
-                    logger.info("Skipping %s: one or more sources have no max date.", pipeline_name)
-                    return
+            #     if not max_dates or any(d is None for d in max_dates.values()):
+            #         logger.info("Skipping %s: one or more sources have no max date.", pipeline_name)
+            #         return
 
-                max_date = min(max_dates.values())
+            #     max_date = min(max_dates.values())
 
-            for alias, max_date_value in max_dates.items():
-                logger.info(
-                    "Max available date for source %s: %s",
-                    alias,
-                    max_date_value,
-                )
+            # for alias, max_date_value in max_dates.items():
+            #     logger.info(
+            #         "Max available date for source %s: %s",
+            #         alias,
+            #         max_date_value,
+            #     )
 
-            with timed_stage(f"{pipeline_name} | get checkpoint"):
-                last_date_str = get_next_date(self.spark_client, pipeline_name)
-                last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
+            # with timed_stage(f"{pipeline_name} | get checkpoint"):
+            #     last_date_str = get_next_date(self.spark_client, pipeline_name)
+            #     last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
 
             read_dfs = {}
             for alias, table_name in sources.items():
@@ -197,8 +189,8 @@ class LakehousePipelineRunner:
                     read_dfs[alias] = read_new_data(
                         spark_client=self.spark_client,
                         source=table_name,
-                        next_date=last_dt,
-                        source_max_date=max_date,
+                        start_dt=start_date,
+                        end_dt=end_date,
                         pipeline_name=pipeline_name,
                         source_type="iceberg",
                     )
@@ -241,7 +233,7 @@ class LakehousePipelineRunner:
 
             with timed_stage(f"{pipeline_name} | update registry"):
                 next_checkpoint = (
-                    max_date + timedelta(days=1)
+                    end_date + timedelta(days=1)
                 ).strftime("%Y-%m-%d")
 
                 update_registry_table(

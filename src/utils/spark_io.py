@@ -22,7 +22,7 @@ def get_current_utc_string() -> str:
 
 
 def get_max_available_date(
-    spark_client, input_path: str, source_type: str = "iceberg"
+    spark_client, source_name: str, source_type: str = "iceberg"
 ) -> datetime | None:
     """
     Return the latest date currently available in the source.
@@ -35,21 +35,21 @@ def get_max_available_date(
     # RAW / MINIO, get the max partition date from the S3 bucket
     # ------------------------------------------------------------------
     if source_type == "raw":
-        max_date = MinioClient().get_max_raw_date(input_path=input_path)
+        max_date = MinioClient().get_max_raw_date(SOURCE_NAME=source_name)
         return max_date
     # ------------------------------------------------------------------
     # ICEBERG
     # ------------------------------------------------------------------
     if source_type == "iceberg":
-        logger.info("Checking Iceberg max date: %s", input_path)
+        logger.info("Checking Iceberg max date: %s", source_name)
         row = (
             spark_client.spark.read.format("iceberg")
-            .load(f"{input_path}.partitions")
+            .load(f"{source_name}.partitions")
             .selectExpr("max(partition.event_time_day) AS max_event_time")
             .first()
         )
         if row is None or row["max_event_time"] is None:
-            logger.info("Iceberg table contains no data: %s", input_path)
+            logger.info("Iceberg table contains no data: %s", source_name)
             return None
         max_event_time = row["max_event_time"]
         # Convert to a Python date without applying to_date() in Spark.

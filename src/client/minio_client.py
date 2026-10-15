@@ -88,7 +88,7 @@ class MinioClient:
 
     def get_max_raw_date(
         self,
-        input_path: str = "s3a://warehouse/raw/customers/",
+        SOURCE_NAME: str = "s3a://warehouse/raw/customers/",
     ) -> date | None:
         """
         Find the latest dt=YYYY-MM-DD partition in MinIO.
@@ -99,16 +99,16 @@ class MinioClient:
         """
 
         # Parse s3a://warehouse/raw/customers/
-        parsed = urlsplit(input_path)
+        parsed = urlsplit(SOURCE_NAME)
 
         if parsed.scheme not in {"s3a", "s3"}:
-            raise ValueError(f"Expected an s3:// or s3a:// URI, got: {input_path}")
+            raise ValueError(f"Expected an s3:// or s3a:// URI, got: {SOURCE_NAME}")
 
         bucket_name = parsed.netloc
         prefix = parsed.path.strip("/")
 
         if not bucket_name:
-            raise ValueError(f"Missing bucket name: {input_path}")
+            raise ValueError(f"Missing bucket name: {SOURCE_NAME}")
 
         # Ensure the prefix ends with "/" when non-empty.
         if prefix:

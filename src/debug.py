@@ -4,10 +4,8 @@ from src.client.spark_client import SparkClient
 client = SparkClient()
 spark = client.spark
 table = "iceberg.metadata.ingestion_registry"
-spark.sql(f"""
-    ALTER TABLE {table}
-    RENAME COLUMN last_processed_date TO next_date
+df = spark.sql(f"""
+    select * from {table} where pipeline_name = 'customer_raw_to_bronze' order by next_date desc
 """)
-df = spark.table(table)
 
 df.show()

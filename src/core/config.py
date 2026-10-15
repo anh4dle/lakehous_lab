@@ -13,7 +13,7 @@ from typing import Callable, Optional
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 
 # --- Global Storage & Metadata ---
-BASE_INPUT_PATH = "s3a://warehouse/raw/"
+BASE_SOURCE_NAME = "s3a://warehouse/raw/"
 REGISTRY_TABLE = "iceberg.metadata.ingestion_registry"
 
 RUN_MODE = "local"
@@ -26,14 +26,14 @@ class BaseConfig:
     SOURCE_TYPE: str = "iceberg"
     PRIMARY_KEYS: tuple = ()
     TRANSFORM_FN: Optional[Callable] = None
-    INPUT_PATH: str = ""
+    SOURCE_NAME: str = ""
 
 # --- Bronze Layer Contracts ---
 @dataclass(frozen=True)
 class CustomerBronzeConfig(BaseConfig):
     PIPELINE_NAME: str = "customer_raw_to_bronze"
     TABLE_NAME: str = "iceberg.bronze.fact_customer_events"
-    INPUT_PATH: str = f"{BASE_INPUT_PATH}customers/"
+    SOURCE_NAME: str = f"{BASE_SOURCE_NAME}customers/"
     SOURCE_TYPE: str = "raw"
     TRANSFORM_FN: callable = transform_to_bronze_customer_events
     PRIMARY_KEYS: tuple = ("event_id",)
@@ -42,7 +42,7 @@ class CustomerBronzeConfig(BaseConfig):
 class OrderBronzeConfig(BaseConfig):
     PIPELINE_NAME: str = "order_raw_to_bronze"
     TABLE_NAME: str = "iceberg.bronze.fact_orders_events"
-    INPUT_PATH: str = f"{BASE_INPUT_PATH}orders/"
+    SOURCE_NAME: str = f"{BASE_SOURCE_NAME}orders/"
     SOURCE_TYPE: str = "raw"
     TRANSFORM_FN: callable = transform_to_bronze_orders_events
     PRIMARY_KEYS: tuple = ("event_id",)
@@ -53,7 +53,7 @@ class OrderBronzeConfig(BaseConfig):
 class CustomerSilverConfig(BaseConfig):
     PIPELINE_NAME: str = "customer_bronze_to_silver"
     TABLE_NAME: str = "iceberg.silver.dim_customer"
-    INPUT_PATH: str = "iceberg.bronze.fact_customer_events"
+    SOURCE_NAME: str = "iceberg.bronze.fact_customer_events"
     SOURCE_TYPE: str = "iceberg"
     TRANSFORM_FN: callable = transform_to_silver_dim_customer
     PRIMARY_KEYS: tuple = ("event_id",)
@@ -63,7 +63,7 @@ class CustomerSilverConfig(BaseConfig):
 class OrderSilverConfig(BaseConfig):
     PIPELINE_NAME: str = "order_bronze_to_silver"
     TABLE_NAME: str = "iceberg.silver.fact_orders"
-    INPUT_PATH: str = "iceberg.bronze.fact_orders_events"
+    SOURCE_NAME: str = "iceberg.bronze.fact_orders_events"
     SOURCE_TYPE: str = "iceberg"
     TRANSFORM_FN: callable = transform_to_silver_fact_orders
     PRIMARY_KEYS: tuple = ("event_id",)
@@ -76,7 +76,6 @@ class DailyOrdersGoldConfig(BaseConfig):
     PRIMARY_KEYS: tuple = ("report_date", "country")
     SOURCE_TYPE: str = "iceberg"
     TRANSFORM_FN: callable = transform_to_gold_daily_orders_by_country
-    PRIMARY_KEYS: tuple = ("event_id",)
     
     
 @dataclass(frozen=True)
