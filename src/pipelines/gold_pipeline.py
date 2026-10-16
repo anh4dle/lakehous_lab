@@ -12,14 +12,17 @@ def run_gold_pipeline():
     spark_client = SparkClient()
     runner = LakehousePipelineRunner(spark_client)
     runner.run_multi_source_pipeline(
-        pipeline_name=DailyOrdersGoldConfig.PIPELINE_NAME,
+        pipeline_config=DailyOrdersGoldConfig,
+        
         sources={
             "silver_orders_df": OrderSilverConfig.TABLE_NAME,
             "silver_customers_df": CustomerSilverConfig.TABLE_NAME,
         },
-        target_table=DailyOrdersGoldConfig.TABLE_NAME,
-        primary_keys=list(DailyOrdersGoldConfig.PRIMARY_KEYS),
-        transform_fn=transform_to_gold_daily_orders_by_country,
+        # pipeline_name=DailyOrdersGoldConfig.PIPELINE_NAME,
+        
+        # target_table=DailyOrdersGoldConfig.TABLE_NAME,
+        # primary_keys=list(DailyOrdersGoldConfig.PRIMARY_KEYS),
+        # transform_fn=transform_to_gold_daily_orders_by_country,
     )
 
 

@@ -1,5 +1,6 @@
 # `contracts.py`
 from pandera.pyspark import Column, DataFrameSchema
+from pandera import Check  # Import Pandera Check
 from pyspark.sql.types import (
     StringType,
     TimestampType,
@@ -14,12 +15,14 @@ from pyspark.sql.types import (
 from pyspark.sql import DataFrame
 import pandera.errors
 from src.core.logger import get_logger
+
 logger = get_logger(__name__)
 
 
 # ============================================================
 # Shared helpers
 # ============================================================
+
 
 def nullable_column(dtype):
     """Create a nullable column, matching the supplied DDL."""
@@ -31,13 +34,15 @@ def nullable_column(dtype):
 # Table: iceberg.bronze.fact_customer_events
 # ============================================================
 
-CUSTOMER_STRUCT = StructType([
-    StructField("customer_id", StringType(), True),
-    StructField("name", StringType(), True),
-    StructField("email", StringType(), True),
-    StructField("country", StringType(), True),
-    StructField("created_at", StringType(), True),
-])
+CUSTOMER_STRUCT = StructType(
+    [
+        StructField("customer_id", StringType(), True),
+        StructField("name", StringType(), True),
+        StructField("email", StringType(), True),
+        StructField("country", StringType(), True),
+        StructField("created_at", StringType(), True),
+    ]
+)
 
 FACT_CUSTOMER_EVENTS = DataFrameSchema(
     {
@@ -55,14 +60,16 @@ FACT_CUSTOMER_EVENTS = DataFrameSchema(
 # Table: iceberg.bronze.fact_orders_events
 # ============================================================
 
-ORDER_STRUCT = StructType([
-    StructField("order_id", StringType(), True),
-    StructField("customer_id", StringType(), True),
-    StructField("amount", FloatType(), True),
-    StructField("status", StringType(), True),
-    StructField("items", IntegerType(), True),
-    StructField("created_at", StringType(), True),
-])
+ORDER_STRUCT = StructType(
+    [
+        StructField("order_id", StringType(), True),
+        StructField("customer_id", StringType(), True),
+        StructField("amount", FloatType(), True),
+        StructField("status", StringType(), True),
+        StructField("items", IntegerType(), True),
+        StructField("created_at", StringType(), True),
+    ]
+)
 
 FACT_ORDERS_EVENTS = DataFrameSchema(
     {
@@ -96,20 +103,30 @@ DIM_CUSTOMER = DataFrameSchema(
 
 
 # ============================================================
+# Shared helpers
+# ============================================================
+
+def column(dtype, nullable=True, checks=None):
+    """Create a column with optional value checks."""
+    return Column(dtype=dtype, nullable=nullable, checks=checks)
+
+
+# ============================================================
 # SILVER: fact_orders
 # Table: iceberg.silver.fact_orders
 # ============================================================
 
 FACT_ORDERS = DataFrameSchema(
     {
-        "event_id": nullable_column(StringType()),
-        "event_time": nullable_column(TimestampType()),
-        "customer_id": nullable_column(StringType()),
-        "order_id": nullable_column(StringType()),
-        "amount": nullable_column(DecimalType(18, 2)),
-        "status": nullable_column(StringType()),
-        "items": nullable_column(IntegerType()),
-        "_ingested_at": nullable_column(TimestampType()),
+        "event_id": column(StringType(), nullable=True),
+        "event_time": column(TimestampType(), nullable=True),
+        # Add value constraints directly into the schema checks
+        "customer_id": column(StringType(), nullable=False),
+        "order_id": column(StringType(), nullable=False),
+        "amount": column(DecimalType(18, 2), nullable=True, checks=Check.ge(0.0)),
+        "status": column(StringType(), nullable=True),
+        "items": column(IntegerType(), nullable=True, checks=Check.ge(0)),
+        "_ingested_at": column(TimestampType(), nullable=True),
     },
     strict=True,
     coerce=False,
@@ -123,17 +140,16 @@ FACT_ORDERS = DataFrameSchema(
 
 DAILY_ORDERS_BY_COUNTRY = DataFrameSchema(
     {
-        "report_date": nullable_column(DateType()),
-        "country": nullable_column(StringType()),
-        "order_count": nullable_column(LongType()),
-        "total_amount": nullable_column(DecimalType(18, 2)),
-        "avg_order_value": nullable_column(DecimalType(18, 2)),
-        "distinct_customers": nullable_column(LongType()),
+        "report_date": column(DateType(), nullable=True),
+        "country": column(StringType(), nullable=True),
+        "order_count": column(LongType(), nullable=True, checks=Check.ge(0)),
+        "total_amount": column(DecimalType(18, 2), nullable=True, checks=Check.ge(0.0)),
+        "avg_order_value": column(DecimalType(18, 2), nullable=True, checks=Check.ge(0.0)),
+        "distinct_customers": column(LongType(), nullable=True, checks=Check.ge(0)),
     },
     strict=True,
     coerce=False,
 )
-
 
 
 # ============================================================
@@ -151,7 +167,6 @@ CONTRACTS = {
 
 def get_contract(table_name: str) -> DataFrameSchema:
     """Return a contract by layer.table name."""
-
     try:
         return CONTRACTS[table_name]
     except KeyError:
@@ -160,44 +175,71 @@ def get_contract(table_name: str) -> DataFrameSchema:
             f"Available contracts: {list(CONTRACTS)}"
         ) from None
 
-def validate_and_split_dataframe(df: DataFrame, table_name: str) -> tuple[DataFrame, DataFrame]:
+def validate_and_split_dataframe(
+    df: DataFrame, table_name: str
+) -> tuple[DataFrame, DataFrame]:
     """
-    Validates a DataFrame against a Pandera contract. 
+    Validates a DataFrame against a Pandera contract (checking both schema and value constraints).
     Splits it into (clean_df, quarantine_df) if validation fails.
     """
     contract = get_contract(table_name)
+    
+    if df is None:
+        logger.info("Empty dataframe passed to validate_and_split_dataframe")
+        return df, None
+
     try:
-        # FIX: Pass df positionally instead of using check_obj=df
-        if df is None:
-            logger.info("Empty dataframe passed to validate_and_split_dataframe")
-            return df, None
+        # lazy=True ensures Pandera evaluates all rows for both schema and value checks
         validated_df = contract.validate(df, lazy=True)
         
-        # If successful, return the original df as clean, and an empty dataframe for DLQ
+        # If no exception is raised, everything is clean
         empty_dlq = df.limit(0)
         return validated_df, empty_dlq
 
     except pandera.errors.SchemaErrors as err:
-        logger.warning("Schema validation failed for table %s. Isolating bad rows...", table_name)
+        logger.warning(
+            "Validation failed (Schema or Value violation) for table %s. Isolating bad rows...", 
+            table_name
+        )
+        
+        # Extract the failure cases dataframe generated by Pandera
         failure_cases = err.failure_cases
-        return handle_row_level_quarantine(df, table_name)
+        return handle_row_level_quarantine(df, table_name, failure_cases)
 
-def handle_row_level_quarantine(df: DataFrame, table_name: str) -> tuple[DataFrame, DataFrame]:
+
+def handle_row_level_quarantine(
+    df: DataFrame, table_name: str, failure_cases: DataFrame = None
+) -> tuple[DataFrame, DataFrame]:
+    """
+    Isolates bad rows using Pandera's failure metadata or fallback rules.
+    """
+    # If Pandera captured specific row failures, we can isolate them using the failure index
+    if failure_cases is not None and not failure_cases.rdd.isEmpty() and "index" in failure_cases.columns:
+        failed_indices = failure_cases.select("index").distinct()
+        
+        # Assuming your dataframe rows have an index identifier matching Pandera's failure report
+        quarantine_df = df.join(failed_indices, on="index", how="inner")
+        clean_df = df.join(failed_indices, on="index", how="left_anti")
+        return clean_df, quarantine_df
+
+    # Fallback business rule filtering if index tracking isn't mapped
     if "fact_orders" in table_name:
-        # Example rule: amount must be >= 0, customer_id and order_id must not be null
         clean_df = df.filter(
-            (df.amount >= 0.0) & 
-            (df.customer_id.isNotNull()) & 
-            (df.order_id.isNotNull())
+            (df.amount >= 0.0)
+            & (df.customer_id.isNotNull())
+            & (df.order_id.isNotNull())
         )
         quarantine_df = df.subtract(clean_df)
         return clean_df, quarantine_df
-        
+
     elif "daily_orders_by_country" in table_name:
-        clean_df = df.filter(df.event_id.isNotNull() & df.customer.customer_id.isNotNull()
-                             & (df.total_amount >= 0.0) & (df.avg_order_value >= 0.0))
+        clean_df = df.filter(
+            df.event_id.isNotNull()
+            & (df.total_amount >= 0.0)
+            & (df.avg_order_value >= 0.0)
+        )
         quarantine_df = df.subtract(clean_df)
         return clean_df, quarantine_df
-        
-    # Default fallback: if no specific rule, assume all clean
+
+    # Default fallback
     return df, df.limit(0)

@@ -1,5 +1,11 @@
 {
+<<<<<<< HEAD
   "customer_seq": 6753,
   "order_seq": 62229,
   "last_date": "2026-05-01"
+=======
+  "customer_seq": 13108,
+  "order_seq": 120775,
+  "last_date": "2026-07-25"
+>>>>>>> 049894dfdc2b64b4ba600e1cb65c75f67ed485e9
 }

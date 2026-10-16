@@ -1,32 +1,31 @@
 from src.core.config import CustomerBronzeConfig, OrderBronzeConfig
 from src.pipelines.pipeline_runner import LakehousePipelineRunner
-from src.utils.transform_script import (
-    transform_to_bronze_customer_events,
-    transform_to_bronze_orders_events,
-)
 from src.client.spark_client import SparkClient
+from src.utils.date_planner import plan_incremental, plan_backfill
 
-def run_bronze_pipeline():
+def run_bronze_pipeline(**args):
+    plan = plan_incremental(
+            last_processed_date=args["last_processed_date"],
+            source_max_date=args["source_max_date"],
+        )
+    if args["mode"] == "backfill":
+        plan = plan_backfill(
+            start_date=args["start_date"],
+            end_date=args["end_date"],
+        )
+
     # Process Customer Bronze
     spark_client = SparkClient()
     runner = LakehousePipelineRunner(spark_client)
     runner.run_single_source_pipeline(
-        pipeline_name=CustomerBronzeConfig.PIPELINE_NAME,
-        input_path=CustomerBronzeConfig.INPUT_PATH,
-        source_type=CustomerBronzeConfig.SOURCE_TYPE,
-        target_table=CustomerBronzeConfig.TABLE_NAME,
-        primary_keys=["event_id"],
-        transform_fn=transform_to_bronze_customer_events,
+        pipeline_config=CustomerBronzeConfig,
+        date_plan=plan,
     )
 
     # Process Order Bronze
     runner.run_single_source_pipeline(
-        pipeline_name=OrderBronzeConfig.PIPELINE_NAME,
-        input_path=OrderBronzeConfig.INPUT_PATH,
-        source_type=OrderBronzeConfig.SOURCE_TYPE,
-        target_table=OrderBronzeConfig.TABLE_NAME,
-        primary_keys=["event_id"],
-        transform_fn=transform_to_bronze_orders_events,
+        pipeline_config=OrderBronzeConfig,
+        date_plan=plan,
     )
 
 

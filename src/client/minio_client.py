@@ -7,6 +7,7 @@ import re
 from urllib.parse import urlsplit
 from src.core.logger import get_logger
 from src.core.config import RUN_MODE
+
 DATE_PARTITION_PATTERN = re.compile(r"^dt=(\d{4}-\d{2}-\d{2})$")
 logger = get_logger(__name__)
 
@@ -18,7 +19,7 @@ class MinioClient:
         access_key: str = None,
         secret_key: str = None,
         secure: bool = False,
-        env = RUN_MODE
+        env=RUN_MODE,
     ):
         if env == "docker":
             self.endpoint = endpoint or os.getenv("MINIO_ENDPOINT", "minio:9000")
