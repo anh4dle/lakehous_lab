@@ -128,43 +128,27 @@ services:
 
   airflow-dag-processor:
     <<: *airflow-common
-
     command: dag-processor
-
     depends_on:
       <<: *airflow-common-depends-on
-
       airflow-init:
         condition: service_completed_successfully
-
     restart: always
-
-
   airflow-worker:
     <<: *airflow-common
-
     command: celery worker
-
     environment:
       <<: *airflow-common-env
-
       DUMB_INIT_SETSID: "0"
-
     depends_on:
       <<: *airflow-common-depends-on
-
       airflow-apiserver:
         condition: service_healthy
-
       airflow-init:
         condition: service_completed_successfully
-
       spark:
         condition: service_started
-
     restart: always
-
-
   airflow-triggerer:
     <<: *airflow-common
     command: triggerer
@@ -183,18 +167,30 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
     user: "0:0"
   minio:
-    image: minio/minio
+    image: quay.io/minio/minio
     container_name: minio
-    command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-      AWS_REGION: us-east-1
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9001"
     volumes:
       - ./data/minio:/data
+  # minio:
+    # image: minio/minio
+    # container_name: minio
+    # command: server /data --console-address ":9001"
+    # ports:
+    #   - "9000:9000"
+    #   - "9001:9001"
+    # environment:
+    #   MINIO_ROOT_USER: minioadmin
+    #   MINIO_ROOT_PASSWORD: minioadmin
+    #   AWS_REGION: us-east-1
+    # volumes:
+    #   - ./data/minio:/data
   iceberg-rest:
     image: tabulario/iceberg-rest
     container_name: iceberg-rest
