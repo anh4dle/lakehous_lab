@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-
+from airflow.operators.python import PythonOperator
+from 
 default_args = {
     "owner": "data_engineering",
     "retries": 1,
@@ -39,6 +40,11 @@ with DAG(
     max_active_runs=1,
     max_active_tasks=1,
 ) as dag:
+    source_to_raw = PythonOperator(
+        task_id="source_to_raw",
+        python_callable=source_to_raw
+    )
+        
     raw_to_bronze = SparkSubmitOperator(
         task_id="raw_to_bronze",
         application="/opt/airflow/dags/scripts/bronze_pipeline.py",
@@ -58,4 +64,3 @@ with DAG(
     )
 
     raw_to_bronze >> bronze_to_silver >> silver_to_gold
-    # silver_to_gold

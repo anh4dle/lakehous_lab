@@ -16,7 +16,6 @@ def plan_incremental(
     source_type = pipeline_config.SOURCE_TYPE
     #Max date from source
     source_max_date = None
-    print("Showing sources", sources)
     if sources:
         max_dates = []
         for alias, table_name in sources.items():
@@ -44,6 +43,8 @@ def plan_backfill(
     start_date: date,
     end_date: date,
 ) -> ProcessingConfig:
+    start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     return ProcessingConfig(
         mode="backfill",
         start_date=start_date,

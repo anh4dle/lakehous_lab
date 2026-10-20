@@ -171,7 +171,7 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
       AWS_REGION: us-east-1
     volumes:
-      - ./data/minio:/data
+      - minio_data:/data   # <--- Changed from ./data/minio:/data
   iceberg-rest:
     image: tabulario/iceberg-rest
     container_name: iceberg-rest
@@ -187,7 +187,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - AWS_REGION=us-east-1
       - CATALOG_CATALOG__IMPL=org.apache.iceberg.jdbc.JdbcCatalog
-      - CATALOG_URI=jdbc:postgresql://postgres:5432/iceberg_catalog
+      - CATALOG_URI=jdbc:postgresql://postgres:5432/airflow
       - CATALOG_JDBC_USER=airflow
       - CATALOG_JDBC_PASSWORD=airflow
     volumes:
@@ -195,3 +195,4 @@ services:
 volumes:
   postgres-db-volume:
   iceberg_catalog_data:
+  minio_data:

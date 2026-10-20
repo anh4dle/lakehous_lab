@@ -160,29 +160,6 @@ class LakehousePipelineRunner:
         logger.info("Starting multi-source pipeline: %s", pipeline_name)
 
         try:
-            # with timed_stage(f"{pipeline_name} | get source max dates"):
-            #     max_dates = {
-            #         alias: get_max_available_date(self.spark_client, table_name)
-            #         for alias, table_name in sources.items()
-            #     }
-
-            #     if not max_dates or any(d is None for d in max_dates.values()):
-            #         logger.info("Skipping %s: one or more sources have no max date.", pipeline_name)
-            #         return
-
-            #     max_date = min(max_dates.values())
-
-            # for alias, max_date_value in max_dates.items():
-            #     logger.info(
-            #         "Max available date for source %s: %s",
-            #         alias,
-            #         max_date_value,
-            #     )
-
-            # with timed_stage(f"{pipeline_name} | get checkpoint"):
-            #     last_date_str = get_next_date(self.spark_client, pipeline_name)
-            #     last_dt = datetime.strptime(last_date_str, "%Y-%m-%d")
-
             read_dfs = {}
             for alias, table_name in sources.items():
                 with timed_stage(f"{pipeline_name} | build read: {alias}"):

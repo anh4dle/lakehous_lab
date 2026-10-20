@@ -66,4 +66,9 @@ python -m src.main
 3. Trigger Pipelines via Airflow
 Access the Airflow UI at http://localhost:8080 (default credentials: airflow/airflow), enable the lakehouse_pipeline DAG, and trigger a manual run to execute the end-to-end Medallion transition.
 
-
+4. Backfill param test:
+{
+  "mode": "backfill",
+  "start_date": "2026-05-02",
+  "end_date": "2026-05-05"
+}

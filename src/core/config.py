@@ -16,7 +16,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 BASE_SOURCE_NAME = "s3a://warehouse/raw/"
 REGISTRY_TABLE = "iceberg.metadata.ingestion_registry"
 
-RUN_MODE = "local"
+RUN_MODE = "docker"
 
 
 @dataclass(frozen=True)

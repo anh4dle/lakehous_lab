@@ -63,7 +63,24 @@ class MinioClient:
         except S3Error:
             logger.exception("Failed to upload %s.", local_path)
             raise
-
+        
+    def upload_bytes(self, bucket_name: str, object_name: str, data: bytes, length: int, content_type: str) -> None:
+        """Uploads a single local file to a specific MinIO path."""
+        self.create_bucket_if_not_exists(bucket_name)
+        try:
+            self.client.put_object(
+                bucket_name=bucket_name, object_name=object_name, data=data, length=length, content_type=content_type
+            )
+            logger.info(
+                "Successfully uploaded %s to s3://%s/%s",
+                object_name,
+                bucket_name,
+                object_name,
+            )
+            return True
+        except S3Error:
+            logger.exception("Failed to upload %s.", object_name)
+            raise
     def upload_directory(
         self, local_dir: str, bucket_name: str, target_prefix: str = ""
     ) -> None:
