@@ -22,12 +22,14 @@ x-airflow-common:
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     # Airflow -> Spark
     AIRFLOW_CONN_SPARK_DEFAULT: spark://spark:7077
+    PYTHONPATH: /opt/airflow
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-./airflow}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-./airflow}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-./airflow}/plugins:/opt/airflow/plugins
     - ./src/pipelines:/opt/airflow/dags/scripts
+    - ./src:/opt/airflow/src
     - ./src.zip:/opt/airflow/src.zip
     - ./jars:/opt/spark/extra_jars
   user: "${AIRFLOW_UID:-50000}:0"

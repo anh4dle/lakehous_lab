@@ -39,36 +39,45 @@ with DAG(
     max_active_runs=1,
     max_active_tasks=1,
 ) as dag:
-    
     # Example using Jinja macro to fallback if dag_run.conf is empty
     raw_to_bronze = SparkSubmitOperator(
         task_id="raw_to_bronze",
         application="/opt/airflow/dags/scripts/bronze_pipeline.py",
         application_args=[
-                "--mode", "{{ dag_run.conf.get('mode', 'incremental') }}",
-                "--start-date", "{{ dag_run.conf.get('start_date', '') }}",
-                "--end-date", "{{ dag_run.conf.get('end_date', '') }}"
+            "--mode",
+            "{{ dag_run.conf.get('mode', 'incremental') }}",
+            "--start-date",
+            "{{ dag_run.conf.get('start_date', '') }}",
+            "--end-date",
+            "{{ dag_run.conf.get('end_date', '') }}",
         ],
         **spark_common_args,
     )
 
     bronze_to_silver = SparkSubmitOperator(
-            task_id="bronze_to_silver",
-            application="/opt/airflow/dags/scripts/silver_pipeline.py",
-            application_args=[
-                "--mode", "{{ dag_run.conf.get('mode', 'incremental') }}",
-                "--start-date", "{{ dag_run.conf.get('start_date', '') }}",
-                "--end-date", "{{ dag_run.conf.get('end_date', '') }}"
-            ],
-            **spark_common_args)
+        task_id="bronze_to_silver",
+        application="/opt/airflow/dags/scripts/silver_pipeline.py",
+        application_args=[
+            "--mode",
+            "{{ dag_run.conf.get('mode', 'incremental') }}",
+            "--start-date",
+            "{{ dag_run.conf.get('start_date', '') }}",
+            "--end-date",
+            "{{ dag_run.conf.get('end_date', '') }}",
+        ],
+        **spark_common_args,
+    )
 
     silver_to_gold = SparkSubmitOperator(
         task_id="silver_to_gold",
         application="/opt/airflow/dags/scripts/gold_pipeline.py",
         application_args=[
-                "--mode", "{{ dag_run.conf.get('mode', 'incremental') }}",
-                "--start-date", "{{ dag_run.conf.get('start_date', '') }}",
-                "--end-date", "{{ dag_run.conf.get('end_date', '') }}"
+            "--mode",
+            "{{ dag_run.conf.get('mode', 'incremental') }}",
+            "--start-date",
+            "{{ dag_run.conf.get('start_date', '') }}",
+            "--end-date",
+            "{{ dag_run.conf.get('end_date', '') }}",
         ],
         **spark_common_args,
     )

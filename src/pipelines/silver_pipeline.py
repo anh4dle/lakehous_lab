@@ -6,12 +6,14 @@ from src.pipelines.pipeline_runner import LakehousePipelineRunner
 from src.client.spark_client import SparkClient
 from src.utils.date_planner import plan_incremental, plan_backfill
 import argparse
+
+
 def run_silver_pipeline(**kwargs):
     spark_client = SparkClient()
     plan = None
     plan_order = None
     run_mode = kwargs.get("mode")
-    #python -m src.pipelines.bronze_pipeline --mode backfill --start-date 2026-07-01 --end-date 2026-07-07
+    # python -m src.pipelines.bronze_pipeline --mode backfill --start-date 2026-07-01 --end-date 2026-07-07
     if run_mode == "backfill":
         plan = plan_backfill(
             start_date=kwargs.get("start_date"),
@@ -40,9 +42,11 @@ def run_silver_pipeline(**kwargs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Silver Pipeline")
-    parser.add_argument("--mode", default="incremental", choices=["incremental", "backfill"])
+    parser.add_argument(
+        "--mode", default="incremental", choices=["incremental", "backfill"]
+    )
     parser.add_argument("--start-date", help="Format: YYYY-MM-DD")
     parser.add_argument("--end-date", help="Format: YYYY-MM-DD")
     parsed_args = vars(parser.parse_args())
-    
+
     run_silver_pipeline(**parsed_args)

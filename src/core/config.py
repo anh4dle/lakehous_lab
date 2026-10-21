@@ -10,6 +10,7 @@ from src.utils.transform_script import (
     transform_to_gold_daily_orders_by_country,
 )
 from typing import Callable, Optional
+
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 
 # --- Global Storage & Metadata ---
@@ -28,6 +29,7 @@ class BaseConfig:
     TRANSFORM_FN: Optional[Callable] = None
     SOURCE_NAME: str = ""
 
+
 # --- Bronze Layer Contracts ---
 @dataclass(frozen=True)
 class CustomerBronzeConfig(BaseConfig):
@@ -37,6 +39,7 @@ class CustomerBronzeConfig(BaseConfig):
     SOURCE_TYPE: str = "raw"
     TRANSFORM_FN: callable = transform_to_bronze_customer_events
     PRIMARY_KEYS: tuple = ("event_id",)
+
 
 @dataclass(frozen=True)
 class OrderBronzeConfig(BaseConfig):
@@ -68,6 +71,7 @@ class OrderSilverConfig(BaseConfig):
     TRANSFORM_FN: callable = transform_to_silver_fact_orders
     PRIMARY_KEYS: tuple = ("event_id",)
 
+
 # --- Gold Layer Contracts ---
 @dataclass(frozen=True)
 class DailyOrdersGoldConfig(BaseConfig):
@@ -76,8 +80,8 @@ class DailyOrdersGoldConfig(BaseConfig):
     PRIMARY_KEYS: tuple = ("report_date", "country")
     SOURCE_TYPE: str = "iceberg"
     TRANSFORM_FN: callable = transform_to_gold_daily_orders_by_country
-    
-    
+
+
 @dataclass(frozen=True)
 class ProcessingConfig:
     mode: Literal["incremental", "backfill"]

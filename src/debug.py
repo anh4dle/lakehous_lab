@@ -1,5 +1,10 @@
 from src.client.spark_client import SparkClient
-from src.core.config import REGISTRY_TABLE, OrderSilverConfig, OrderBronzeConfig, DailyOrdersGoldConfig
+from src.core.config import (
+    REGISTRY_TABLE,
+    OrderSilverConfig,
+    OrderBronzeConfig,
+    DailyOrdersGoldConfig,
+)
 
 client = SparkClient()
 spark = client.spark

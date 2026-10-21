@@ -4,14 +4,16 @@ from src.client.spark_client import SparkClient
 from src.utils.date_planner import plan_incremental, plan_backfill
 from src.core.logger import get_logger
 import argparse
+
 logger = get_logger(__name__)
+
 
 def run_bronze_pipeline(**kwargs):
     spark_client = SparkClient()
     run_mode = kwargs.get("mode")
     plan = None
     plan_order = None
-    #python -m src.pipelines.bronze_pipeline --mode backfill --start-date 2026-07-14 --end-date 2026-07-20
+    # python -m src.pipelines.bronze_pipeline --mode backfill --start-date 2026-07-14 --end-date 2026-07-20
     if run_mode == "backfill":
         plan = plan_backfill(
             start_date=kwargs.get("start_date"),
@@ -26,7 +28,6 @@ def run_bronze_pipeline(**kwargs):
             spark_client=spark_client,
             pipeline_config=OrderBronzeConfig,
         )
-        
 
     # Process Customer Bronze
     runner = LakehousePipelineRunner(spark_client)
@@ -44,9 +45,11 @@ def run_bronze_pipeline(**kwargs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Bronze Pipeline")
-    parser.add_argument("--mode", default="incremental", choices=["incremental", "backfill"])
+    parser.add_argument(
+        "--mode", default="incremental", choices=["incremental", "backfill"]
+    )
     parser.add_argument("--start-date", help="Format: YYYY-MM-DD")
     parser.add_argument("--end-date", help="Format: YYYY-MM-DD")
     parsed_args = vars(parser.parse_args())
-    
+
     run_bronze_pipeline(**parsed_args)

@@ -1,17 +1,25 @@
 # src/engine/base_runner.py
 from datetime import datetime, timedelta
 from pyspark.sql.functions import lit, current_timestamp
-from src.utils.spark_io import read_new_data, write_to_iceberg, get_max_available_date, get_next_date, update_registry_table
+from src.utils.spark_io import (
+    read_new_data,
+    write_to_iceberg,
+    get_max_available_date,
+    get_next_date,
+    update_registry_table,
+)
 from src.core.logger import get_logger
 from src.utils.validation import validate_and_split_dataframe
 from contextlib import contextmanager
 from time import perf_counter
 from src.core.config import BaseConfig, ProcessingConfig
+
 logger = get_logger(__name__)
 import logging
 
 
 logger = logging.getLogger(__name__)
+
 
 @contextmanager
 def timed_stage(stage_name: str):
@@ -79,11 +87,9 @@ class LakehousePipelineRunner:
                 )
 
                 with timed_stage(f"{pipeline_name} | build quarantine metadata"):
-                    quarantine_with_meta = (
-                        df_quarantine
-                        .withColumn("_error_reason", lit("Data Validation Failure"))
-                        .withColumn("_quarantine_timestamp", current_timestamp())
-                    )
+                    quarantine_with_meta = df_quarantine.withColumn(
+                        "_error_reason", lit("Data Validation Failure")
+                    ).withColumn("_quarantine_timestamp", current_timestamp())
 
                 with timed_stage(f"{pipeline_name} | write quarantine DLQ"):
                     write_to_iceberg(
@@ -121,9 +127,7 @@ class LakehousePipelineRunner:
                     )
 
                 with timed_stage(f"{pipeline_name} | update registry"):
-                    next_checkpoint = (
-                        end_dt + timedelta(days=1)
-                    ).strftime("%Y-%m-%d")
+                    next_checkpoint = (end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
                     update_registry_table(
                         self.spark_client,
@@ -209,9 +213,7 @@ class LakehousePipelineRunner:
                 )
 
             with timed_stage(f"{pipeline_name} | update registry"):
-                next_checkpoint = (
-                    end_date + timedelta(days=1)
-                ).strftime("%Y-%m-%d")
+                next_checkpoint = (end_date + timedelta(days=1)).strftime("%Y-%m-%d")
 
                 update_registry_table(
                     self.spark_client,

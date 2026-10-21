@@ -238,6 +238,7 @@ def read_new_data(
         )
     )
 
+
 def get_next_date(spark_client, pipeline_name) -> str:
     """Retrieve last successful processed date"""
     df = spark_client.spark.sql(

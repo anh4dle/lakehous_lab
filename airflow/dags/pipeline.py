@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.operators.python import PythonOperator
-from 
+from src.pipelines.mock_data_generator import main as generate_data
 default_args = {
     "owner": "data_engineering",
     "retries": 1,
@@ -42,7 +42,8 @@ with DAG(
 ) as dag:
     source_to_raw = PythonOperator(
         task_id="source_to_raw",
-        python_callable=source_to_raw
+        python_callable=generate_data,
+        op_kwargs={"argv": []}  # Tells argparse to ignore sys.argv and use defaults!
     )
         
     raw_to_bronze = SparkSubmitOperator(
@@ -63,4 +64,4 @@ with DAG(
         **spark_common_args,
     )
 
-    raw_to_bronze >> bronze_to_silver >> silver_to_gold
+    source_to_raw >> raw_to_bronze >> bronze_to_silver >> silver_to_gold
