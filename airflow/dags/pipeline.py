@@ -27,7 +27,6 @@ spark_common_args = {
         "spark.default.parallelism": "2",
         "spark.sql.shuffle.partitions": "2",
         "spark.executorEnv.MALLOC_ARENA_MAX": "2",
-        "spark.executor.extraJavaOptions": "-XX:ErrorFile=/tmp/hs_err_%p.log",
     },
 }
 
@@ -43,7 +42,7 @@ with DAG(
     source_to_raw = PythonOperator(
         task_id="source_to_raw",
         python_callable=generate_data,
-        op_kwargs={"argv": []}  # Tells argparse to ignore sys.argv and use defaults!
+        op_kwargs={"argv": []}   
     )
         
     raw_to_bronze = SparkSubmitOperator(

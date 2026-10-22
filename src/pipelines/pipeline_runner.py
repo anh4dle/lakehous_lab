@@ -70,6 +70,8 @@ class LakehousePipelineRunner:
                     df_source, target_table
                 )
 
+            df_quarantine = df_quarantine.cache()
+            df_source = df_source.cache()
             # Count quarantine rows (triggers Spark action & measures true cost)
             quarantine_count = 0
             if df_quarantine is not None:

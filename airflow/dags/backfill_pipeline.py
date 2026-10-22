@@ -26,7 +26,6 @@ spark_common_args = {
         "spark.default.parallelism": "2",
         "spark.sql.shuffle.partitions": "2",
         "spark.executorEnv.MALLOC_ARENA_MAX": "2",
-        "spark.executor.extraJavaOptions": "-XX:ErrorFile=/tmp/hs_err_%p.log",
     },
 }
 
