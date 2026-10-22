@@ -13,7 +13,7 @@ def run_bronze_pipeline(**kwargs):
     run_mode = kwargs.get("mode")
     plan = None
     plan_order = None
-    # python -m src.pipelines.bronze_pipeline --mode backfill --start-date 2026-07-14 --end-date 2026-07-20
+    # python -m src.pipelines.bronze_pipeline --mode backfill --start-date 2026-05-01 --end-date 2026-05-10
     if run_mode == "backfill":
         plan = plan_backfill(
             start_date=kwargs.get("start_date"),
