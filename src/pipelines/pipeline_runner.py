@@ -124,8 +124,10 @@ class LakehousePipelineRunner:
                     )
 
                 with timed_stage(f"{pipeline_name} | update registry"):
+                    if date_plan.mode == "backfill":
+                        return
                     next_checkpoint = (end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
-
+                  
                     update_registry_table(
                         self.spark_client,
                         next_checkpoint,
@@ -159,7 +161,9 @@ class LakehousePipelineRunner:
         start_date = plan.start_date
         end_date = plan.end_date
         logger.info("Starting multi-source pipeline: %s", pipeline_name)
-
+        if plan is None:
+            logger.info("No new data found for %s", pipeline_name)
+            return
         try:
             read_dfs = {}
             for alias, table_name in sources.items():
@@ -210,8 +214,10 @@ class LakehousePipelineRunner:
                 )
 
             with timed_stage(f"{pipeline_name} | update registry"):
+                if plan.mode == "backfill":
+                    return
                 next_checkpoint = (end_date + timedelta(days=1)).strftime("%Y-%m-%d")
-
+                
                 update_registry_table(
                     self.spark_client,
                     next_checkpoint,

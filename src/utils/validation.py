@@ -210,7 +210,6 @@ def validate_and_split_dataframe(
         failure_cases = err.failure_cases
         return handle_row_level_quarantine(df, table_name, failure_cases)
 
-
 def handle_row_level_quarantine(
     df: DataFrame, table_name: str, failure_cases: DataFrame = None
 ) -> tuple[DataFrame, DataFrame]:

@@ -143,8 +143,6 @@ def read_new_data(
     Iceberg:
         Filter rows by event_time date.
     """
-    # start_dt = _as_date(next_date) + timedelta(days=1)
-    # end_dt = _as_date(source_max_date)
 
     if start_dt > end_dt:
         logger.info(

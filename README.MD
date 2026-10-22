@@ -15,7 +15,7 @@
 - Dead Letter Queue (DLQ): routes malformed records to a quarantine table with  audit metadata (_error_reason, _quarantine_timestamp) without crashing the pipeline.
 - Idempotent Upserts: Implements Iceberg MERGE INTO operations to guarantee safe retries and prevent data duplication.
 - Containerized Infrastructure: Fully orchestrated via Docker Compose, including Airflow, Spark Master/Worker nodes, MinIO storage, and an Iceberg REST.
-
+- Iceberg maintainence: merge small files, set expiring snapshots policy and remove orphan files.
 ## Project Structure
 ```text
 lakehouse_lab/
