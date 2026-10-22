@@ -16,8 +16,6 @@ def main():
 
     spark = SparkClient().spark
 
-    # Split the table argument: e.g., 'iceberg.bronze.fact_customer_events'
-    # catalog = 'iceberg', table_name = 'bronze.fact_customer_events'
     parts = args.table.split('.')
     if len(parts) >= 3:
         catalog_name = parts[0]

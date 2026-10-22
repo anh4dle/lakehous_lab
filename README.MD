@@ -12,12 +12,12 @@
 ## Key Technical Features
 - Incremental loading: Tracks processing progress via a custom ingestion_registry table, ensuring pipelines only process new daily partitions.
 - Schema Validation: Uses Pandera to validate schema fields, data types, nullability, and business ranges.
-- Dead Letter Queue (DLQ): Intercepts validation failures and routes malformed records to an iceberg.ops.quarantine_dlq table with full audit metadata (_error_reason, _quarantine_timestamp) without crashing the pipeline.
+- Dead Letter Queue (DLQ): routes malformed records to a quarantine table with  audit metadata (_error_reason, _quarantine_timestamp) without crashing the pipeline.
 - Idempotent Upserts: Implements Iceberg MERGE INTO operations to guarantee safe retries and prevent data duplication.
 - Containerized Infrastructure: Fully orchestrated via Docker Compose, including Airflow, Spark Master/Worker nodes, MinIO storage, and an Iceberg REST.
 
 ## Project Structure
-
+```text
 lakehouse_lab/
 ├── airflow/
 │   ├── config/
@@ -44,6 +44,7 @@ lakehouse_lab/
 ├── Makefile
 ├── pyproject.toml
 └── uv.lock
+```
 ## Getting Started:
 - Prerequisites: 
     - Docker and Docker Compose installed.

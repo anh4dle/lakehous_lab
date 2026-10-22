@@ -1,11 +1,9 @@
 # src/engine/base_runner.py
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pyspark.sql.functions import lit, current_timestamp
 from src.utils.spark_io import (
     read_new_data,
     write_to_iceberg,
-    get_max_available_date,
-    get_next_date,
     update_registry_table,
 )
 from src.core.logger import get_logger
@@ -13,7 +11,6 @@ from src.utils.validation import validate_and_split_dataframe
 from contextlib import contextmanager
 from time import perf_counter
 from src.core.config import BaseConfig, ProcessingConfig
-
 logger = get_logger(__name__)
 import logging
 
