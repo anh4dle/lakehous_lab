@@ -32,10 +32,10 @@ with DAG(
         compact_task = SparkSubmitOperator(
             task_id=f'compact_{table_slug}',
             application='/opt/airflow/src/pipelines/iceberg_maintenance.py',
-            conn_id='spark_default',  # Uses your AIRFLOW_CONN_SPARK_DEFAULT environment connection
+            conn_id='spark_default',
             conf={
                 'spark.master': 'spark://spark:7077',
-                'spark.submit.pyFiles': '/opt/airflow/src.zip', # Optional: if you package your src folder
+                'spark.submit.pyFiles': '/opt/airflow/src.zip',
             },
             packages=(
                 "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,"
