@@ -49,7 +49,7 @@ class LakehousePipelineRunner:
         if df_source is None:
             logger.info("No new data found for %s", pipeline_name)
             return
-    
+     
         #Transform source data to target table schema
         df_transformed = transform_fn(df_source)
         #Validate source schemas, business rules, and split into clean and quarantine
@@ -58,7 +58,6 @@ class LakehousePipelineRunner:
         )
 
         df_quarantine = df_quarantine.cache()
-        df_source = df_source.cache()
         quarantine_count = 0
         
         if df_quarantine is not None:
@@ -82,44 +81,13 @@ class LakehousePipelineRunner:
                 primary_keys=primary_keys,
             )
 
-        source_count = 0
-        if df_source is not None:
-            source_count = df_source.count()
-
-        if source_count == 0:
-            logger.info("No valid new data found for %s", pipeline_name)
-            return
-
         logger.info(
             "Pipeline %s: valid_rows=%d, quarantine_rows=%d",
             pipeline_name,
-            source_count,
             quarantine_count,
         )
 
-        try:
-            #Merge to target table
-            write_to_iceberg(
-                df=df_transformed,
-                table_name=target_table,
-                primary_keys=primary_keys,
-            )
-
-            if date_plan.mode == "backfill":
-                return
-            next_checkpoint = (end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
-            #Update checkpoint for incremental load
-            update_registry_table(
-                self.spark_client,
-                next_checkpoint,
-                pipeline_name,
-            )
-
-            logger.info("Successfully processed pipeline %s", pipeline_name)
-
-        except Exception:
-            logger.exception("Failed to process pipeline %s", pipeline_name)
-            raise
+        self.merge_and_update_registry_table(df_transformed, date_plan, pipeline_name, target_table, primary_keys)
 
     def run_multi_source_pipeline(
         self,
@@ -187,21 +155,22 @@ class LakehousePipelineRunner:
                 primary_keys=primary_keys,
             )
 
-        source_count = 0
-        if df_transformed is not None:
-            source_count = df_transformed.count()
-
-        if source_count == 0:
-            logger.info("No valid new data found for %s", pipeline_name)
-            return
-
         logger.info(
             "Pipeline %s: valid_rows=%d, quarantine_rows=%d",
             pipeline_name,
-            source_count,
             quarantine_count,
         )
         
+        self.merge_and_update_registry_table(df_transformed, plan, pipeline_name, target_table, primary_keys, end_date)
+        
+    def merge_and_update_registry_table(
+        self,
+        df_transformed,
+        plan: ProcessingConfig,
+        pipeline_name: str,
+        target_table: str,
+        primary_keys: list[str]
+    ):
         try:
             write_to_iceberg(
                 df=df_transformed,
@@ -211,7 +180,7 @@ class LakehousePipelineRunner:
 
             if plan.mode == "backfill":
                 return
-            next_checkpoint = (end_date + timedelta(days=1)).strftime("%Y-%m-%d")
+            next_checkpoint = (plan.end_date + timedelta(days=1)).strftime("%Y-%m-%d")
 
             update_registry_table(
                 self.spark_client,
