@@ -4,15 +4,8 @@ from airflow import DAG
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.utils.task_group import TaskGroup
 
-# Iceberg maintenance through Trino (ALTER TABLE ... EXECUTE).
-# Requires the apache-airflow-providers-trino package and an Airflow
-# connection named "trino_default" that points at the Trino coordinator.
-
 TRINO_CONN_ID = "trino_default"
 
-# Trino enforces a minimum retention on expire_snapshots and remove_orphan_files
-# (7d by default). Going lower needs a change to the catalog's min-retention
-# properties in Trino, so keep these at 7d unless you have changed that.
 EXPIRE_RETENTION = "7d"
 ORPHAN_RETENTION = "7d"
 
@@ -42,8 +35,6 @@ with DAG(
     schedule="@weekly",
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    # Never overlap two maintenance runs, and keep to one task at a time so the
-    # Trino cluster is not hit by several heavy statements at once.
     max_active_runs=1,
     max_active_tasks=1,
     dagrun_timeout=timedelta(hours=3),

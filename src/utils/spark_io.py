@@ -1,5 +1,7 @@
-from datetime import datetime, timedelta, timezone, date
+from datetime import datetime, timezone, date
 import uuid
+from pyspark.sql import Window
+from pyspark.sql import functions as F
 from typing import Optional
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, to_timestamp
@@ -63,6 +65,24 @@ def get_max_available_date(
         f"Unsupported source_type: {source_type}. Expected 'raw' or 'iceberg'."
     )
 
+def deduplicate_latest_ingested(
+    df: DataFrame,
+    primary_keys: list[str],
+) -> DataFrame:
+    window = (
+        Window
+        .partitionBy(*primary_keys)
+        .orderBy(
+            F.col("_ingested_at").desc_nulls_last()
+        )
+    )
+
+    return (
+        df.withColumn("_rn", F.row_number().over(window))
+          .filter(F.col("_rn") == 1)
+          .drop("_rn")
+    )
+    
 
 def write_to_iceberg(
     df: DataFrame,
@@ -80,7 +100,7 @@ def write_to_iceberg(
     if "gold" in table_name:
         partition_date_col = "report_date"
     # 1. Deduplicate batch on the table's specific composite key
-    df_deduped = df.dropDuplicates(primary_keys)
+    df_deduped = deduplicate_latest_ingested(df, primary_keys)
 
     # 2. Get min/max dates from the incoming batch to prune target partitions
     date_bounds = df_deduped.selectExpr(

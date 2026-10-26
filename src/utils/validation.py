@@ -160,14 +160,18 @@ def validate_and_split_dataframe(
     df: DataFrame, table_name: str
 ) -> tuple[DataFrame, DataFrame]:
     """
-    Validates and splits a DataFrame into (clean_df, quarantine_df)  
+    Validates the transformed data and splits into (clean_df, quarantine_df)  
     """
+    #Validate schema
+    contract = get_contract(table_name)
+    contract.validate(df)
+    
     if df is None:
         logger.info("Empty dataframe passed to validate_and_split_dataframe")
         return df, None
 
     # Define table-specific validation rules as native PySpark boolean expressions
-    if "fact_orders" in table_name:
+    if "silver.fact_orders" in table_name:
         is_valid = (
             F.col("customer_id").isNotNull()
             & F.col("order_id").isNotNull()
