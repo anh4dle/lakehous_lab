@@ -1,91 +1,94 @@
 from datetime import datetime, timedelta
+
 from airflow import DAG
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+from airflow.utils.task_group import TaskGroup
+
+# Iceberg maintenance through Trino (ALTER TABLE ... EXECUTE).
+# Requires the apache-airflow-providers-trino package and an Airflow
+# connection named "trino_default" that points at the Trino coordinator.
+
+TRINO_CONN_ID = "trino_default"
+
+# Trino enforces a minimum retention on expire_snapshots and remove_orphan_files
+# (7d by default). Going lower needs a change to the catalog's min-retention
+# properties in Trino, so keep these at 7d unless you have changed that.
+EXPIRE_RETENTION = "7d"
+ORPHAN_RETENTION = "7d"
+
+# Files smaller than this are candidates for compaction.
+OPTIMIZE_FILE_SIZE_THRESHOLD = "128MB"
+
+TARGET_TABLES = [
+    "iceberg.bronze.fact_customer_events",
+    # "iceberg.ops.quarantine_dlq",
+    # "iceberg.silver.dim_customers",
+    # "iceberg.gold.<your_gold_table>",
+    # "iceberg.ops.<your_registry_table>",
+]
 
 default_args = {
-    'owner': 'lakehouse_admin',
-    'depends_on_past': False,
-    'email_on_failure': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    "owner": "lakehouse_admin",
+    "depends_on_past": False,
+    "email_on_failure": False,
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
-    dag_id='lakehouse_iceberg_maintenance',
+    dag_id="lakehouse_iceberg_maintenance_v2",
     default_args=default_args,
-    description='Automated maintenance DAG for Apache Iceberg tables via Spark Submit',
-    schedule='@weekly',
+    description="Weekly Iceberg maintenance (compact, expire snapshots, remove orphans) via Trino",
+    schedule="@weekly",
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    tags=['lakehouse', 'iceberg', 'maintenance', 'spark'],
+    # Never overlap two maintenance runs, and keep to one task at a time so the
+    # Trino cluster is not hit by several heavy statements at once.
+    max_active_runs=1,
+    max_active_tasks=1,
+    dagrun_timeout=timedelta(hours=3),
+    tags=["lakehouse", "iceberg", "maintenance", "trino"],
 ) as dag:
 
-    target_tables = [
-        "iceberg.bronze.fact_customer_events",
-        # "iceberg.silver.dim_customers",
-    ]
+    for table in TARGET_TABLES:
+        slug = table.replace(".", "_")
 
-    for table in target_tables:
-        table_slug = table.replace(".", "_")
+        # One group per table: the three steps are strictly ordered, but a failure
+        # on one table does not block the chains of the other tables.
+        with TaskGroup(group_id=slug) as table_group:
 
-        # Step 1: Bin-Pack Compaction
-        compact_task = SparkSubmitOperator(
-            task_id=f'compact_{table_slug}',
-            application='/opt/airflow/src/pipelines/iceberg_maintenance.py',
-            conn_id='spark_default',
-            conf={
-                'spark.master': 'spark://spark:7077',
-                'spark.submit.pyFiles': '/opt/airflow/src.zip',
-            },
-            packages=(
-                "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,"
-                "org.apache.iceberg:iceberg-aws-bundle:1.6.1,"
-                "org.apache.hadoop:hadoop-aws:3.3.4"
-            ),
-            application_args=[
-                '--action', 'compact',
-                '--table', table
-            ],
-            env_vars={'RUN_MODE': 'docker'},
-        )
+            # Step 1: bin-pack small files into larger ones.
+            compact = SQLExecuteQueryOperator(
+                task_id="compact",
+                conn_id=TRINO_CONN_ID,
+                autocommit=True,
+                sql=(
+                    f"ALTER TABLE {table} EXECUTE optimize"
+                    f"(file_size_threshold => '{OPTIMIZE_FILE_SIZE_THRESHOLD}')"
+                ),
+            )
 
-        # Step 2: Expire Old Snapshots
-        expire_snapshots_task = SparkSubmitOperator(
-            task_id=f'expire_snapshots_{table_slug}',
-            application='/opt/airflow/src/pipelines/iceberg_maintenance.py',
-            conn_id='spark_default',
-            conf={'spark.master': 'spark://spark:7077'},
-            packages=(
-                "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,"
-                "org.apache.iceberg:iceberg-aws-bundle:1.6.1,"
-                "org.apache.hadoop:hadoop-aws:3.3.4"
-            ),
-            application_args=[
-                '--action', 'expire_snapshots',
-                '--table', table,
-                '--retention-days', '7'
-            ],
-            env_vars={'RUN_MODE': 'docker'},
-        )
+            # Step 2: drop old snapshots so replaced files are no longer referenced.
+            expire_snapshots = SQLExecuteQueryOperator(
+                task_id="expire_snapshots",
+                conn_id=TRINO_CONN_ID,
+                autocommit=True,
+                sql=(
+                    f"ALTER TABLE {table} EXECUTE expire_snapshots"
+                    f"(retention_threshold => '{EXPIRE_RETENTION}')"
+                ),
+            )
 
-        # Step 3: Remove Orphan Files
-        remove_orphans_task = SparkSubmitOperator(
-            task_id=f'remove_orphans_{table_slug}',
-            application='/opt/airflow/src/pipelines/iceberg_maintenance.py',
-            conn_id='spark_default',
-            conf={'spark.master': 'spark://spark:7077'},
-            packages=(
-                "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,"
-                "org.apache.iceberg:iceberg-aws-bundle:1.6.1,"
-                "org.apache.hadoop:hadoop-aws:3.3.4"
-            ),
-            application_args=[
-                '--action', 'remove_orphans',
-                '--table', table,
-                '--older-than-days', '3'
-            ],
-            env_vars={'RUN_MODE': 'docker'},
-        )
+            # Step 3: delete files that no snapshot or metadata file references.
+            # Keep the retention longer than your longest-running write job.
+            remove_orphans = SQLExecuteQueryOperator(
+                task_id="remove_orphan_files",
+                conn_id=TRINO_CONN_ID,
+                autocommit=True,
+                sql=(
+                    f"ALTER TABLE {table} EXECUTE remove_orphan_files"
+                    f"(retention_threshold => '{ORPHAN_RETENTION}')"
+                ),
+            )
 
-        # Enforce sequential lifecycle dependency chain
-        compact_task >> expire_snapshots_task >> remove_orphans_task
+            compact >> expire_snapshots >> remove_orphans

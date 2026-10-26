@@ -127,12 +127,13 @@ class LakehousePipelineRunner:
         target_table = pipeline_config.TABLE_NAME
         primary_keys = pipeline_config.PRIMARY_KEYS
         transform_fn = pipeline_config.TRANSFORM_FN
-        start_date = plan.start_date
-        end_date = plan.end_date
+
         logger.info("Starting multi-source pipeline: %s", pipeline_name)
         if plan is None:
             logger.info("No new data found for %s", pipeline_name)
             return
+        start_date = plan.start_date
+        end_date = plan.end_date
         read_dfs = {}
         for alias, table_name in sources.items():
             read_dfs[alias] = read_new_data(

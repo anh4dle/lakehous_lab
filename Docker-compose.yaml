@@ -22,6 +22,7 @@ x-airflow-common:
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     # Airflow -> Spark
     AIRFLOW_CONN_SPARK_DEFAULT: spark://spark:7077
+    AIRFLOW_CONN_TRINO_DEFAULT: trino://admin@trino:8080/iceberg
     PYTHONPATH: /opt/airflow
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow}/dags:/opt/airflow/dags
@@ -194,7 +195,29 @@ services:
       - CATALOG_JDBC_PASSWORD=airflow
     volumes:
       - iceberg_catalog_data:/var/lib/iceberg
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    ports:
+      - "8085:8080"  # Note: If Airflow apiserver uses 8080, change this to "8085:8080"
+    volumes:
+      - ./trino/catalog:/etc/trino/catalog   # your iceberg.properties etc.
+    restart: always
+  superset:
+      image: apache/superset:latest
+      container_name: superset
+      ports:
+        - "8088:8088"
+      restart: always
+      environment:
+        SUPERSET_LOAD_EXAMPLES: 'no'
+        PYTHONPATH: /app/pythonpath
+      volumes:
+        - superset_home:/app/superset_home
+      depends_on:
+        - postgres
 volumes:
   postgres-db-volume:
   iceberg_catalog_data:
   minio_data:
+  superset_home:
