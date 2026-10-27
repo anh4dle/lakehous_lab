@@ -25,7 +25,6 @@ def get_logger(
     logger.setLevel(numeric_level)
 
     # Define log format
-    # Example output: 2026-07-29 09:25:00 | INFO     | [src.services.ingestion] | Processing item 42
     formatter = logging.Formatter(
         fmt="%(asctime)s | %(levelname)-8s | [%(name)s] | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",

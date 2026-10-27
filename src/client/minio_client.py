@@ -64,6 +64,35 @@ class MinioClient:
             logger.exception("Failed to upload %s.", local_path)
             raise
 
+    def upload_bytes(
+        self,
+        bucket_name: str,
+        object_name: str,
+        data: bytes,
+        length: int,
+        content_type: str,
+    ) -> None:
+        """Uploads a single local file to a specific MinIO path."""
+        self.create_bucket_if_not_exists(bucket_name)
+        try:
+            self.client.put_object(
+                bucket_name=bucket_name,
+                object_name=object_name,
+                data=data,
+                length=length,
+                content_type=content_type,
+            )
+            logger.info(
+                "Successfully uploaded %s to s3://%s/%s",
+                object_name,
+                bucket_name,
+                object_name,
+            )
+            return True
+        except S3Error:
+            logger.exception("Failed to upload %s.", object_name)
+            raise
+
     def upload_directory(
         self, local_dir: str, bucket_name: str, target_prefix: str = ""
     ) -> None:
@@ -88,7 +117,7 @@ class MinioClient:
 
     def get_max_raw_date(
         self,
-        input_path: str = "s3a://warehouse/raw/customers/",
+        SOURCE_NAME: str = "s3a://warehouse/raw/customers/",
     ) -> date | None:
         """
         Find the latest dt=YYYY-MM-DD partition in MinIO.
@@ -99,16 +128,16 @@ class MinioClient:
         """
 
         # Parse s3a://warehouse/raw/customers/
-        parsed = urlsplit(input_path)
+        parsed = urlsplit(SOURCE_NAME)
 
         if parsed.scheme not in {"s3a", "s3"}:
-            raise ValueError(f"Expected an s3:// or s3a:// URI, got: {input_path}")
+            raise ValueError(f"Expected an s3:// or s3a:// URI, got: {SOURCE_NAME}")
 
         bucket_name = parsed.netloc
         prefix = parsed.path.strip("/")
 
         if not bucket_name:
-            raise ValueError(f"Missing bucket name: {input_path}")
+            raise ValueError(f"Missing bucket name: {SOURCE_NAME}")
 
         # Ensure the prefix ends with "/" when non-empty.
         if prefix:

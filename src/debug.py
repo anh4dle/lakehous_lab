@@ -1,13 +1,17 @@
 from src.client.spark_client import SparkClient
-
+from src.core.config import (
+    REGISTRY_TABLE,
+    OrderSilverConfig,
+    OrderBronzeConfig,
+    DailyOrdersGoldConfig,
+)
 
 client = SparkClient()
 spark = client.spark
+# table = DailyOrdersGoldConfig.TABLE_NAME
 table = "iceberg.metadata.ingestion_registry"
-spark.sql(f"""
-    ALTER TABLE {table}
-    RENAME COLUMN last_processed_date TO next_date
+df = spark.sql(f"""
+    select * from {table}
 """)
-df = spark.table(table)
 
 df.show()

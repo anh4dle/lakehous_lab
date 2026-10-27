@@ -60,9 +60,12 @@ class SparkClient:
             )
             .config("spark.hadoop.fs.s3a.endpoint.region", "us-east-1")
             .config("spark.hadoop.fs.s3a.region", "us-east-1")
-            # .config("spark.sql.iceberg.vectorization.enabled", "false")
+            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
+            .config("spark.sql.catalog.iceberg", "org.apache.iceberg.spark.SparkCatalog") \
             .config("spark.sql.codegen.wholeStage", "false")
-            # .config("spark.sql.adaptive.enabled", "false")
+            .config("spark.hadoop.fs.s3.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+            .config("spark.hadoop.fs.AbstractFileSystem.s3.impl", "org.apache.hadoop.fs.s3a.AnnotationBasedFS")
+            # .config("spark.sql.iceberg.write.accept-schema-changes", "true")
             .getOrCreate()
         )
 

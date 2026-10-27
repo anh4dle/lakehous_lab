@@ -22,12 +22,15 @@ x-airflow-common:
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     # Airflow -> Spark
     AIRFLOW_CONN_SPARK_DEFAULT: spark://spark:7077
+    AIRFLOW_CONN_TRINO_DEFAULT: trino://admin@trino:8080/iceberg
+    PYTHONPATH: /opt/airflow
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-./airflow}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-./airflow}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-./airflow}/plugins:/opt/airflow/plugins
     - ./src/pipelines:/opt/airflow/dags/scripts
+    - ./src:/opt/airflow/src
     - ./src.zip:/opt/airflow/src.zip
     - ./jars:/opt/spark/extra_jars
   user: "${AIRFLOW_UID:-50000}:0"
@@ -39,7 +42,6 @@ x-airflow-common:
     postgres:
       condition: service_healthy
 services:
-
   redis:
     image: redis:7.2-bookworm
     expose:
@@ -170,6 +172,7 @@ services:
       MINIO_ROOT_PASSWORD: password
     command: server /data --console-address ":9001"
     volumes:
+<<<<<<< HEAD
       - ./data/minio:/data
   # minio:
     # image: minio/minio
@@ -184,6 +187,9 @@ services:
     #   AWS_REGION: us-east-1
     # volumes:
     #   - ./data/minio:/data
+=======
+      - minio_data:/data   # <--- Changed from ./data/minio:/data
+>>>>>>> 1e0be36b125b5fd090986c037cea25d3872def21
   iceberg-rest:
     image: tabulario/iceberg-rest
     container_name: iceberg-rest
@@ -199,11 +205,21 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - AWS_REGION=us-east-1
       - CATALOG_CATALOG__IMPL=org.apache.iceberg.jdbc.JdbcCatalog
-      - CATALOG_URI=jdbc:postgresql://postgres:5432/iceberg_catalog
+      - CATALOG_URI=jdbc:postgresql://postgres:5432/airflow
       - CATALOG_JDBC_USER=airflow
       - CATALOG_JDBC_PASSWORD=airflow
     volumes:
       - iceberg_catalog_data:/var/lib/iceberg
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    ports:
+      - "8085:8080"  # Note: If Airflow apiserver uses 8080, change this to "8085:8080"
+    volumes:
+      - ./trino/catalog:/etc/trino/catalog   # your iceberg.properties etc.
+    restart: always
 volumes:
   postgres-db-volume:
   iceberg_catalog_data:
+  minio_data:
+  superset_home:

@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-
+from airflow.operators.python import PythonOperator
+from src.pipelines.mock_data_generator_v2 import main as generate_data
 default_args = {
     "owner": "data_engineering",
     "retries": 1,
@@ -26,7 +27,6 @@ spark_common_args = {
         "spark.default.parallelism": "2",
         "spark.sql.shuffle.partitions": "2",
         "spark.executorEnv.MALLOC_ARENA_MAX": "2",
-        "spark.executor.extraJavaOptions": "-XX:ErrorFile=/tmp/hs_err_%p.log",
     },
 }
 
@@ -39,6 +39,12 @@ with DAG(
     max_active_runs=1,
     max_active_tasks=1,
 ) as dag:
+    source_to_raw = PythonOperator(
+        task_id="source_to_raw",
+        python_callable=generate_data,
+        op_kwargs={"argv": []}   
+    )
+        
     raw_to_bronze = SparkSubmitOperator(
         task_id="raw_to_bronze",
         application="/opt/airflow/dags/scripts/bronze_pipeline.py",
@@ -57,5 +63,4 @@ with DAG(
         **spark_common_args,
     )
 
-    raw_to_bronze >> bronze_to_silver >> silver_to_gold
-    # silver_to_gold
+    source_to_raw >> raw_to_bronze >> bronze_to_silver >> silver_to_gold
