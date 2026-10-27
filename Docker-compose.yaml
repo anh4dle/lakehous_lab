@@ -160,11 +160,7 @@ services:
       start_period: 5s
     restart: always
   minio:
-<<<<<<< HEAD
-    image: quay.io/minio/minio
-=======
     image: elestio/minio
->>>>>>> 049894dfdc2b64b4ba600e1cb65c75f67ed485e9
     container_name: minio
     ports:
       - "9000:9000"
