@@ -30,45 +30,27 @@ def transform_to_bronze_customer_events(raw_df: DataFrame) -> DataFrame:
     """
     execution_time = get_current_utc_string()
 
-    customer_fields = ["customer_id", "name", "email", "country", "created_at", "device_id"]
+    raw_df = raw_df.select(
+        col("event_id"),
+        to_timestamp(col("event_time")).alias("event_time"),
+        col("customer"),  # Struct <customer_id, name, email, country>
+        to_timestamp(lit(execution_time)).alias("_ingested_at"),
+    )
 
     return raw_df.select(
         col("event_id"),
-        to_timestamp(col("event_time")).alias("event_time"),
-        # when() without otherwise() -> nullable struct, and a null customer stays null
-        when(
-            col("customer").isNotNull(),
-            struct(*[col(f"customer.{f}").alias(f) for f in customer_fields]),
+        col("event_time"),
+        struct(
+            col("customer.customer_id").alias("customer_id"),
+            col("customer.name").alias("name"),
+            col("customer.email").alias("email"),
+            col("customer.country").alias("country"),
+            col("customer.created_at").alias("created_at"),
+            col("customer.device_id").alias("device_id"),
+            col("customer.tier").alias("tier")
         ).alias("customer"),
-        to_timestamp(lit(execution_time)).alias("_ingested_at"),
+        col("_ingested_at"),
     )
-    
-# def transform_to_bronze_customer_events(raw_df: DataFrame) -> DataFrame:
-#     """
-#     Transforms raw JSON input into iceberg.bronze.fact_customer_events.
-#     """
-#     execution_time = get_current_utc_string()
-
-#     raw_df = raw_df.select(
-#         col("event_id"),
-#         to_timestamp(col("event_time")).alias("event_time"),
-#         col("customer"),  # Struct <customer_id, name, email, country>
-#         to_timestamp(lit(execution_time)).alias("_ingested_at"),
-#     )
-
-#     return raw_df.select(
-#         col("event_id"),
-#         col("event_time"),
-#         struct(
-#             col("customer.customer_id").alias("customer_id"),
-#             col("customer.name").alias("name"),
-#             col("customer.email").alias("email"),
-#             col("customer.country").alias("country"),
-#             col("customer.created_at").alias("created_at"),
-#             col("customer.device_id").alias("device_id")
-#         ).alias("customer"),
-#         col("_ingested_at"),
-#     )
 
 
 def transform_to_bronze_orders_events(raw_df: DataFrame) -> DataFrame:
@@ -88,7 +70,8 @@ def transform_to_bronze_orders_events(raw_df: DataFrame) -> DataFrame:
             col("order.status").cast("string").alias("status"),
             col("order.items").cast("int").alias("items"),
             col("order.created_at").cast("string").alias("created_at"),
-            col("order.session_id").cast("string").alias("session_id")
+            col("order.session_id").cast("string").alias("session_id"),
+            col("order.promo_code").cast("string").alias("promo_code")
         ).alias("order"),
         to_timestamp(lit(execution_time)).alias("_ingested_at"),
     )
@@ -112,6 +95,7 @@ def transform_to_silver_dim_customer(bronze_customer_df: DataFrame) -> DataFrame
         col("customer.email").alias("email"),
         col("customer.country").alias("country"),
         col("customer.device_id").alias("device_id"),
+        col("customer.tier").alias("tier"),
         current_timestamp().alias("_ingested_at"),
     )
 
@@ -130,6 +114,7 @@ def transform_to_silver_fact_orders(bronze_orders_df: DataFrame) -> DataFrame:
         col("order.status").alias("status"),
         col("order.items").alias("items"),
         col("order.session_id").cast("string").alias("session_id"),
+        col("order.promo_code").cast("string").alias("promo_code"),
         current_timestamp().alias("_ingested_at"),
     )
 

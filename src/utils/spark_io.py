@@ -267,7 +267,7 @@ def write_to_iceberg(
 
     try:
         cols = df_deduped.columns
-        set_clause = ", ".join(f"t.`{c}` = s.`{c}`" for c in cols)
+        set_clause = ", ".join(f"`{c}` = s.`{c}`" for c in cols)
         insert_cols = ", ".join(f"`{c}`" for c in cols)
         insert_vals = ", ".join(f"s.`{c}`" for c in cols)
 

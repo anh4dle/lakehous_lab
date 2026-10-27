@@ -168,28 +168,11 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
     volumes:
-<<<<<<< HEAD
-      - ./data/minio:/data
-  # minio:
-    # image: minio/minio
-    # container_name: minio
-    # command: server /data --console-address ":9001"
-    # ports:
-    #   - "9000:9000"
-    #   - "9001:9001"
-    # environment:
-    #   MINIO_ROOT_USER: minioadmin
-    #   MINIO_ROOT_PASSWORD: minioadmin
-    #   AWS_REGION: us-east-1
-    # volumes:
-    #   - ./data/minio:/data
-=======
       - minio_data:/data   # <--- Changed from ./data/minio:/data
->>>>>>> 1e0be36b125b5fd090986c037cea25d3872def21
   iceberg-rest:
     image: tabulario/iceberg-rest
     container_name: iceberg-rest
