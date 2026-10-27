@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.operators.python import PythonOperator
-from src.pipelines.mock_data_generator import main as generate_data
+from src.pipelines.mock_data_generator_v2 import main as generate_data
 default_args = {
     "owner": "data_engineering",
     "retries": 1,

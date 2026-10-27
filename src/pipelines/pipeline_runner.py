@@ -49,13 +49,14 @@ class LakehousePipelineRunner:
             logger.info("No new data found for %s", pipeline_name)
             return
      
-        #Transform source data to target table schema
-        df_transformed = transform_fn(df_source)
+
         #Validate source schemas, business rules, and split into clean and quarantine
         df_transformed, df_quarantine = validate_and_split_dataframe(
-            df_transformed, target_table
+            df_source, target_table
         )
-
+        #Transform source data to target table schema
+        df_transformed = transform_fn(df_source)
+        
         self.write_quarantine_rows(df_quarantine, pipeline_name, primary_keys)
         self.merge_and_update_registry_table(df_transformed, date_plan, pipeline_name, target_table, primary_keys)
 
@@ -97,13 +98,8 @@ class LakehousePipelineRunner:
                 pipeline_name,
             )
             return
-
         #Transform source data to target table schema
         df_transformed = transform_fn(**read_dfs)
-
-        df_transformed, df_quarantine = validate_and_split_dataframe(df_transformed, target_table)
-        
-        self.write_quarantine_rows(df_quarantine, pipeline_name, primary_keys)
         self.merge_and_update_registry_table(df_transformed, plan, pipeline_name, target_table, primary_keys)
         
     def merge_and_update_registry_table(

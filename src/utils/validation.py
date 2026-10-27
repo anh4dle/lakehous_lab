@@ -156,21 +156,35 @@ def get_contract(table_name: str) -> DataFrameSchema:
         ) from None
 
 
+from pyspark.sql import DataFrame
+import pyspark.sql.functions as F
+from pyspark.storagelevel import StorageLevel
+import logging
+
+logger = logging.getLogger(__name__)
+
 def validate_and_split_dataframe(
     df: DataFrame, table_name: str
 ) -> tuple[DataFrame, DataFrame]:
     """
-    Validates the transformed data and splits into (clean_df, quarantine_df)  
+    Validates schema using Pandera, evaluates row-level business rules, 
+    and splits into (clean_df, quarantine_df).
     """
-    #Validate schema
-    contract = get_contract(table_name)
-    contract.validate(df)
-    
-    if df is None:
-        logger.info("Empty dataframe passed to validate_and_split_dataframe")
+    # 1. Early exit check before touching contracts
+    if df is None or df.rdd.isEmpty():
+        logger.info("Empty dataframe passed to validate_and_split_dataframe for %s", table_name)
         return df, None
 
-    # Define table-specific validation rules as native PySpark boolean expressions
+    # 2. Validate schema and handle contract drift/errors
+    contract = get_contract(table_name)
+    try:
+        # Run with lazy=False (or let it raise naturally) to halt on schema drift
+        validated_df = contract.validate(df, lazy=False) 
+    except Exception as e:
+        logger.error(f"🚨 CRITICAL: Schema contract validation failed for {table_name}. Halting pipeline.")
+        raise e  # Fail fast and loud for structural breaks
+
+    # 3. Define table-specific validation rules as native PySpark boolean expressions
     if "silver.fact_orders" in table_name:
         is_valid = (
             F.col("customer_id").isNotNull()
@@ -178,28 +192,24 @@ def validate_and_split_dataframe(
             & (F.col("amount") >= 0.0)
             & (F.col("items") >= 0.0)
         )
-    elif "daily_orders_by_country" in table_name:
-        is_valid = (
-            F.col("total_amount").isNotNull()
-            & (F.col("total_amount") >= 0.0)
-            & (F.col("avg_order_value") >= 0.0)
-        )
     elif "fact_customer_events" in table_name or "fact_orders_events" in table_name:
         is_valid = (
             F.col("event_id").isNotNull()
             & F.col("event_time").isNotNull()
         )
     else:
-        logger.warning(
-            "No explicit validation rules found for table %s. Defaulting all rows to valid.",
-            table_name,
+        raise ValueError(
+            f"Table {table_name} is either a Gold table (no quarantine allowed) "
+            "or lacks explicit validation rules."
         )
-        is_valid = F.lit(True)
 
-    # 1. Add a temporary validation flag column evaluated in a single distributed pass
-    flagged_df = df.withColumn("_is_valid", is_valid)
+    # 4. Use validated_df (not raw df) to add the temporary validation flag
+    flagged_df = validated_df.withColumn("_is_valid", is_valid)
 
-    # 2. Split into clean and quarantine streams using lazy pointers (zero shuffles)
+    # 5. CRITICAL: Persist to memory/disk to prevent Spark from re-computing the DAG twice during writes
+    flagged_df.persist(StorageLevel.MEMORY_AND_DISK)
+
+    # 6. Split into clean and quarantine streams
     clean_df = flagged_df.filter(F.col("_is_valid") == True).drop("_is_valid")
     quarantine_df = flagged_df.filter(F.col("_is_valid") == False).drop("_is_valid")
 
