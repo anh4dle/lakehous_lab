@@ -12,9 +12,8 @@ from pyspark.sql.types import (
     DateType,
 )
 from src.core.logger import get_logger
-
+from pyspark.storagelevel import StorageLevel
 logger = get_logger(__name__)
-
 
 # ============================================================
 # Shared helpers
@@ -38,7 +37,7 @@ FACT_CUSTOMER_EVENTS = DataFrameSchema(
         "event_time": nullable_column(TimestampType()),
         "_ingested_at": nullable_column(TimestampType()),
     },
-    strict=True,
+    strict=False,
     coerce=False,
 )
 
@@ -54,10 +53,9 @@ FACT_ORDERS_EVENTS = DataFrameSchema(
         "event_time": nullable_column(TimestampType()),
         "_ingested_at": nullable_column(TimestampType()),
     },
-    strict=True,
+    strict=False,
     coerce=False,
 )
-
 
 # ============================================================
 # SILVER: dim_customer
@@ -156,12 +154,6 @@ def get_contract(table_name: str) -> DataFrameSchema:
         ) from None
 
 
-from pyspark.sql import DataFrame
-import pyspark.sql.functions as F
-from pyspark.storagelevel import StorageLevel
-import logging
-
-logger = logging.getLogger(__name__)
 
 def validate_and_split_dataframe(
     df: DataFrame, table_name: str

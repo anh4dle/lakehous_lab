@@ -48,16 +48,14 @@ class LakehousePipelineRunner:
         if df_source is None:
             logger.info("No new data found for %s", pipeline_name)
             return
-     
-
-        #Validate source schemas, business rules, and split into clean and quarantine
-        df_transformed, df_quarantine = validate_and_split_dataframe(
-            df_source, target_table
-        )
+        if source_type == "iceberg":
+            #Validate source schemas, business rules, and split into clean and quarantine
+            df_source, df_quarantine = validate_and_split_dataframe(
+                df_source, source_name
+            )
+            self.write_quarantine_rows(df_quarantine, pipeline_name, primary_keys)
         #Transform source data to target table schema
         df_transformed = transform_fn(df_source)
-        
-        self.write_quarantine_rows(df_quarantine, pipeline_name, primary_keys)
         self.merge_and_update_registry_table(df_transformed, date_plan, pipeline_name, target_table, primary_keys)
 
     def run_multi_source_pipeline(
@@ -80,10 +78,10 @@ class LakehousePipelineRunner:
         start_date = plan.start_date
         end_date = plan.end_date
         read_dfs = {}
-        
+        quarantine_dfs = {}
         #Read source table into DataFrames
         for alias, table_name in sources.items():
-            read_dfs[alias] = read_new_data(
+            df_source = read_new_data(
                 spark_client=self.spark_client,
                 source=table_name,
                 start_dt=start_date,
@@ -91,6 +89,12 @@ class LakehousePipelineRunner:
                 pipeline_name=pipeline_name,
                 source_type="iceberg",
             )
+            df_source, df_quarantine = validate_and_split_dataframe(
+                df_source, table_name
+            )
+            read_dfs[alias] = df_source
+            quarantine_dfs[alias] = df_quarantine
+            
 
         if any(df is None for df in read_dfs.values()):
             logger.info(
@@ -100,6 +104,8 @@ class LakehousePipelineRunner:
             return
         #Transform source data to target table schema
         df_transformed = transform_fn(**read_dfs)
+        for k, df_quarantine in quarantine_dfs.items():
+            self.write_quarantine_rows(df_quarantine, pipeline_name, primary_keys)
         self.merge_and_update_registry_table(df_transformed, plan, pipeline_name, target_table, primary_keys)
         
     def merge_and_update_registry_table(
