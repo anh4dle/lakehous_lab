@@ -65,6 +65,7 @@ class SparkClient:
             .config("spark.sql.codegen.wholeStage", "false")
             .config("spark.hadoop.fs.s3.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
             .config("spark.hadoop.fs.AbstractFileSystem.s3.impl", "org.apache.hadoop.fs.s3a.AnnotationBasedFS")
+            # .config("spark.sql.iceberg.write.accept-schema-changes", "true")
             .getOrCreate()
         )
 

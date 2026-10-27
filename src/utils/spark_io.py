@@ -84,59 +84,6 @@ def deduplicate_latest_ingested(
     )
     
 
-def write_to_iceberg(
-    df: DataFrame,
-    table_name: str,
-    primary_keys: Union[str, List[str]] = "event_id",
-    partition_date_col: str = "event_time",
-):
-    """
-    Executes an idempotent MERGE INTO against an Iceberg table using
-    custom primary key(s) (e.g., 'event_id' for Silver, ['report_date', 'country'] for Gold).
-    """
-    if isinstance(primary_keys, str):
-        primary_keys = [primary_keys]
-
-    if "gold" in table_name:
-        partition_date_col = "report_date"
-    # 1. Deduplicate batch on the table's specific composite key
-    df_deduped = deduplicate_latest_ingested(df, primary_keys)
-
-    # 2. Get min/max dates from the incoming batch to prune target partitions
-    date_bounds = df_deduped.selectExpr(
-        f"MIN(CAST({partition_date_col} AS DATE)) as min_d",
-        f"MAX(CAST({partition_date_col} AS DATE)) as max_d",
-    ).first()
-
-    min_date = date_bounds["min_d"]
-    max_date = date_bounds["max_d"]
-
-    # 3. Build join predicate: "target.key1 = source.key1 AND target.key2 = source.key2"
-    join_predicate = " AND ".join(
-        [f"target.{key} = source.{key}" for key in primary_keys]
-    )
-    # 4. Add date range filter to the join predicate
-    if min_date and max_date:
-        join_predicate += f" AND CAST(target.{partition_date_col} AS DATE) BETWEEN '{min_date}' AND '{max_date}'"
-
-    # 5. Register temporary view
-    temp_view_name = f"staging_{uuid.uuid4().hex[:8]}"
-    df_deduped.createOrReplaceTempView(temp_view_name)
-
-    try:
-        df.sparkSession.sql(f"""
-            MERGE INTO {table_name} AS target
-            USING {temp_view_name} AS source
-            ON {join_predicate}
-            WHEN MATCHED THEN
-              UPDATE SET *
-            WHEN NOT MATCHED THEN
-              INSERT *
-        """)
-    finally:
-        df.sparkSession.catalog.dropTempView(temp_view_name)
-
-
 def _as_date(value: date | datetime) -> date:
     """Normalize a date or datetime to a date."""
     if isinstance(value, datetime):
@@ -276,3 +223,71 @@ def update_registry_table(spark_client, max_date: str, pipeline_name):
         ["pipeline_name", "next_date", "load_timestamp", "status"],
     )
     control_df.writeTo(REGISTRY_TABLE).append()
+
+
+
+
+def write_to_iceberg(
+    df: DataFrame,
+    table_name: str,
+    primary_keys: Union[str, List[str]] = "event_id",
+    partition_date_col: str = "event_time",
+):
+    """
+    Executes an idempotent MERGE INTO against an Iceberg table using
+    custom primary key(s) (e.g., 'event_id' for Silver, ['report_date', 'country'] for Gold).
+    """
+    if isinstance(primary_keys, str):
+        primary_keys = [primary_keys]
+
+    if "gold" in table_name:
+        partition_date_col = "report_date"
+    # 1. Deduplicate batch on the table's specific composite key
+    df_deduped = deduplicate_latest_ingested(df, primary_keys)
+    # 2. Get min/max dates from the incoming batch to prune target partitions
+    date_bounds = df_deduped.selectExpr(
+        f"MIN(CAST({partition_date_col} AS DATE)) as min_d",
+        f"MAX(CAST({partition_date_col} AS DATE)) as max_d",
+    ).first()
+
+    min_date = date_bounds["min_d"]
+    max_date = date_bounds["max_d"]
+
+    # 3. Build join predicate: "target.key1 = source.key1 AND target.key2 = source.key2"
+    join_predicate = " AND ".join(
+        [f"target.{key} = source.{key}" for key in primary_keys]
+    )
+    # 4. Add date range filter to the join predicate
+    if min_date and max_date:
+        join_predicate += f" AND CAST(target.{partition_date_col} AS DATE) BETWEEN '{min_date}' AND '{max_date}'"
+
+    # 5. Register temporary view
+    temp_view_name = f"staging_{uuid.uuid4().hex[:8]}"
+    df_deduped.createOrReplaceTempView(temp_view_name)
+
+    try:
+        cols = df_deduped.columns
+        set_clause = ", ".join(f"t.`{c}` = s.`{c}`" for c in cols)
+        insert_cols = ", ".join(f"`{c}`" for c in cols)
+        insert_vals = ", ".join(f"s.`{c}`" for c in cols)
+
+        merge_sql = f"""
+            MERGE INTO {table_name} AS t
+            USING {temp_view_name} AS s
+            ON {" AND ".join(f"t.`{k}` = s.`{k}`" for k in primary_keys)}
+            WHEN MATCHED THEN UPDATE SET {set_clause}
+            WHEN NOT MATCHED THEN INSERT ({insert_cols}) VALUES ({insert_vals})
+        """
+        logger.info("Executing Iceberg MERGE SQL:\n%s", merge_sql)
+        logger.info("Source schema:\n%s", df_deduped.schema.simpleString())
+        logger.info(
+            "Target schema:\n%s",
+            df.sparkSession.table(table_name).schema.simpleString(),
+        )
+
+        df.sparkSession.sql(merge_sql)
+    finally:
+        df.sparkSession.catalog.dropTempView(temp_view_name)
+
+
+
