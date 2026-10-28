@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS  iceberg.gold.daily_orders_by_country (
     order_count          BIGINT,
     total_amount         DECIMAL(18,2),
     avg_order_value      DECIMAL(18,2),
-    distinct_customers   BIGINT
+    distinct_customers   BIGINT,
+    _ingested_at    TIMESTAMP
 )
 USING iceberg
 PARTITIONED BY (report_date);

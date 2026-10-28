@@ -80,9 +80,26 @@ class SparkClient:
 
     def bootstrap_sql_tables(self):
         sql_dir = ROOT_DIR / "sql" / "all_ddl.sql"
-        with open(sql_dir) as f:
-            sql = f.read()
-            for statement in sql.split(";"):
-                if statement.strip():
-                    self.spark.sql(statement)
-                    logger.info("SQL executed: %s", statement)
+        
+        # with open(sql_dir) as f:
+        #     sql = f.read()
+        #     for statement in sql.split(";"):
+        #         if statement.strip():
+        #             self.spark.sql(statement)
+        #             logger.info("SQL executed: %s", statement)
+        self.spark.sql("""
+                       CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
+    event_id        STRING,
+    event_time      TIMESTAMP,
+    customer        STRUCT<
+        customer_id STRING,
+        name STRING,
+        email STRING,
+        country STRING,
+        created_at STRING
+    >,
+    _ingested_at    TIMESTAMP
+)
+USING iceberg
+PARTITIONED BY (days(event_time));
+                       """)

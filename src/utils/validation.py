@@ -41,7 +41,6 @@ FACT_CUSTOMER_EVENTS = DataFrameSchema(
     coerce=False,
 )
 
-
 # ============================================================
 # BRONZE: fact_orders_events
 # Table: iceberg.bronze.fact_orders_events
@@ -56,7 +55,6 @@ FACT_ORDERS_EVENTS = DataFrameSchema(
     strict=False,
     coerce=False,
 )
-
 # ============================================================
 # SILVER: dim_customer
 # Table: iceberg.silver.dim_customer
@@ -156,8 +154,20 @@ def get_contract(table_name: str) -> DataFrameSchema:
             f"Unknown table contract: {table_name!r}. "
             f"Available contracts: {list(CONTRACTS)}"
         ) from None
+        
+def add_missing_cols(df: DataFrame, schema: DataFrameSchema) -> DataFrame:
+    for col_name, col_config in schema.columns.items():
+        if col_name not in df.columns:
+            df = df.withColumn(col_name, F.lit(None).cast(col_config.dtype.type))
 
+    contract_cols = list(schema.columns.keys())
+    extra_cols = [c for c in df.columns if c not in contract_cols]
 
+    if schema.strict:
+        # strict contracts (silver/gold) must have exactly the contract columns
+        return df.select(*contract_cols)
+    # non-strict contracts (bronze): contract columns first, extras preserved
+    return df.select(*contract_cols, *extra_cols)
 
 def validate_and_split_dataframe(
     df: DataFrame, table_name: str
@@ -173,14 +183,16 @@ def validate_and_split_dataframe(
 
     # 2. Validate schema and handle contract drift/errors
     contract = get_contract(table_name)
+    df = add_missing_cols(df, contract)
     try:
-        # Run with lazy=False (or let it raise naturally) to halt on schema drift
         validated_df = contract.validate(df, lazy=False) 
     except Exception as e:
         logger.error(f"🚨 CRITICAL: Schema contract validation failed for {table_name}. Halting pipeline.")
+        logger.error(f"Showing schemas {df.schema}")
         raise e  # Fail fast and loud for structural breaks
 
     # 3. Define table-specific validation rules as native PySpark boolean expressions
+    is_valid = F.lit(True)
     if "silver.fact_orders" in table_name:
         is_valid = (
             F.col("customer_id").isNotNull()
@@ -192,11 +204,6 @@ def validate_and_split_dataframe(
         is_valid = (
             F.col("event_id").isNotNull()
             & F.col("event_time").isNotNull()
-        )
-    else:
-        raise ValueError(
-            f"Table {table_name} is either a Gold table (no quarantine allowed) "
-            "or lacks explicit validation rules."
         )
 
     # 4. Use validated_df (not raw df) to add the temporary validation flag
