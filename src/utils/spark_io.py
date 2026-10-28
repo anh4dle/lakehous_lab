@@ -65,23 +65,20 @@ def get_max_available_date(
         f"Unsupported source_type: {source_type}. Expected 'raw' or 'iceberg'."
     )
 
+
 def deduplicate_latest_ingested(
     df: DataFrame,
     primary_keys: list[str],
 ) -> DataFrame:
-    window = (
-        Window
-        .partitionBy(*primary_keys)
-        .orderBy(
-            F.col("_ingested_at").desc_nulls_last()
-        )
+    window = Window.partitionBy(*primary_keys).orderBy(
+        F.col("_ingested_at").desc_nulls_last()
     )
     return (
         df.withColumn("_rn", F.row_number().over(window))
-          .filter(F.col("_rn") == 1)
-          .drop("_rn")
+        .filter(F.col("_rn") == 1)
+        .drop("_rn")
     )
-    
+
 
 def _as_date(value: date | datetime) -> date:
     """Normalize a date or datetime to a date."""
@@ -189,15 +186,13 @@ def read_new_data(
 
     return (
         # df_raw.withColumn("pipeline_name", lit(pipeline_name))
-        df_raw
-        .withColumn(
+        df_raw.withColumn(
             "event_time",
             to_timestamp(
                 col("event_time"),
                 "yyyy-MM-dd'T'HH:mm:ss",
             ),
-        )
-        .withColumn(
+        ).withColumn(
             "_ingested_at",
             to_timestamp(lit(batch_time)),
         )
@@ -224,6 +219,7 @@ def update_registry_table(spark_client, max_date: str, pipeline_name):
     )
     control_df.writeTo(REGISTRY_TABLE).append()
 
+
 def write_to_iceberg(
     df: DataFrame,
     table_name: str,
@@ -240,7 +236,7 @@ def write_to_iceberg(
     if "gold" in table_name:
         partition_date_col = "report_date"
     # 1. Deduplicate batch on the table's specific composite key
-    final_cols = [f.name for f in df.schema.fields]   # the 4 real columns, no _rn
+    final_cols = [f.name for f in df.schema.fields]  # the 4 real columns, no _rn
 
     df_deduped = deduplicate_latest_ingested(df, primary_keys).select(*final_cols)
     # 2. Get min/max dates from the incoming batch to prune target partitions
@@ -253,9 +249,7 @@ def write_to_iceberg(
     max_date = date_bounds["max_d"]
 
     # 3. Build join predicate: "target.key1 = source.key1 AND target.key2 = source.key2"
-    join_predicate = " AND ".join(
-        [f"t.{key} = source.{key}" for key in primary_keys]
-    )
+    join_predicate = " AND ".join([f"t.{key} = source.{key}" for key in primary_keys])
     # 4. Add date range filter to the join predicate
     if min_date and max_date:
         join_predicate += f" AND CAST(t.{partition_date_col} AS DATE) BETWEEN '{min_date}' AND '{max_date}'"
@@ -282,6 +276,3 @@ def write_to_iceberg(
         df.sparkSession.sql(merge_sql)
     finally:
         df.sparkSession.catalog.dropTempView(temp_view_name)
-
-
-

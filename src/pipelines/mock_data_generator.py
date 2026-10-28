@@ -61,9 +61,7 @@ def generate_customers_data(minio_client, base_date, n):
     json_bytes = json_data.encode("utf-8")
     bytes_io = io.BytesIO(json_bytes)
     # 2. Define your object key path in MinIO
-    object_name = (
-        f"raw/customers/dt={base_date}/customers_{int(datetime.utcnow().timestamp())}.json"
-    )
+    object_name = f"raw/customers/dt={base_date}/customers_{int(datetime.utcnow().timestamp())}.json"
 
     # 3. Stream directly using BytesIO (no local file write required)
     minio_client.upload_bytes(
@@ -145,7 +143,6 @@ def generate_data(start_date):
     logger.info("DONE")
 
 
-
 # -------------------------
 # ENTRYPOINT
 # -------------------------
@@ -171,7 +168,9 @@ def main(argv=None):
 
     # Convert the string date argument into a datetime.date object
     try:
-        parsed_start_date = datetime.strptime(str(args.start_date), "%Y-%m-%d").date() + timedelta(days=1)
+        parsed_start_date = datetime.strptime(
+            str(args.start_date), "%Y-%m-%d"
+        ).date() + timedelta(days=1)
     except ValueError:
         raise ValueError(
             f"Invalid date format for --start_date: '{args.start_date}'. Use YYYY-MM-DD."
@@ -180,6 +179,6 @@ def main(argv=None):
     # Hand off variables to the execution block
     generate_data(start_date=parsed_start_date)
 
-    
+
 if __name__ == "__main__":
     main()

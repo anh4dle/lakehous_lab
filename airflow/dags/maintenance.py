@@ -40,14 +40,12 @@ with DAG(
     dagrun_timeout=timedelta(hours=3),
     tags=["lakehouse", "iceberg", "maintenance", "trino"],
 ) as dag:
-
     for table in TARGET_TABLES:
         slug = table.replace(".", "_")
 
         # One group per table: the three steps are strictly ordered, but a failure
         # on one table does not block the chains of the other tables.
         with TaskGroup(group_id=slug) as table_group:
-
             # Step 1: bin-pack small files into larger ones.
             compact = SQLExecuteQueryOperator(
                 task_id="compact",

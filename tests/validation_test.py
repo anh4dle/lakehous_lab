@@ -11,24 +11,24 @@ def test_fact_customer_events_validation(spark_client):
         Row(
             event_id="cust_evt_001",
             event_time=datetime(2026, 5, 1, 10, 0, 0),
-            _ingested_at=datetime(2026, 5, 1, 10, 5, 0)
+            _ingested_at=datetime(2026, 5, 1, 10, 5, 0),
         ),
         Row(
             order_id="order_1",
             event_time=datetime(2026, 5, 1, 10, 0, 0),
-            _ingested_at=datetime(2026, 5, 1, 10, 5, 0)
+            _ingested_at=datetime(2026, 5, 1, 10, 5, 0),
         ),
         # Invalid row (missing event_id)
         Row(
             event_id=None,
             event_time=datetime(2026, 5, 1, 10, 10, 0),
-            _ingested_at=datetime(2026, 5, 1, 10, 15, 0)
+            _ingested_at=datetime(2026, 5, 1, 10, 15, 0),
         ),
         # Invalid row (missing event_time)
         Row(
             event_id="cust_evt_002",
             event_time=None,
-            _ingested_at=datetime(2026, 5, 1, 10, 20, 0)
+            _ingested_at=datetime(2026, 5, 1, 10, 20, 0),
         ),
     ]
     df = spark_client.spark.createDataFrame(data)

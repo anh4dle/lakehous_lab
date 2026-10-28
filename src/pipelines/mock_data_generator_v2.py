@@ -84,10 +84,8 @@ def generate_customers_data(minio_client, base_date, n):
     json_data = json.dumps(customers, indent=2)
     json_bytes = json_data.encode("utf-8")
     bytes_io = io.BytesIO(json_bytes)
-    
-    object_name = (
-        f"raw/customers/dt={base_date}/customers_{int(datetime.utcnow().timestamp())}.json"
-    )
+
+    object_name = f"raw/customers/dt={base_date}/customers_{int(datetime.utcnow().timestamp())}.json"
 
     minio_client.upload_bytes(
         bucket_name="warehouse",
@@ -117,7 +115,11 @@ def generate_orders_data(minio_client, base_date, n, active_customer_ids):
 
     for _ in range(n):
         order_id = str(uuid.uuid4())
-        customer_id = random.choice(active_customer_ids) if active_customer_ids else str(uuid.uuid4())
+        customer_id = (
+            random.choice(active_customer_ids)
+            if active_customer_ids
+            else str(uuid.uuid4())
+        )
         event_time = random_time_in_day(base_date)
 
         # High Cardinality Field: Unique session tracking ID per order
@@ -139,7 +141,9 @@ def generate_orders_data(minio_client, base_date, n, active_customer_ids):
 
         # Schema Evolution: Add 'promo_code' field after May 10, 2026
         if base_date >= date(2026, 5, 10):
-            event["order"]["promo_code"] = random.choice([None, "SUMMER_SALE", "VIP_DEAL"])
+            event["order"]["promo_code"] = random.choice(
+                [None, "SUMMER_SALE", "VIP_DEAL"]
+            )
         else:
             event["order"]["promo_code"] = None
 
@@ -155,12 +159,14 @@ def generate_orders_data(minio_client, base_date, n, active_customer_ids):
 
     final_count = len(orders)
 
-    print(f"[QUALITY CHECK] Date: {base_date} | Total Orders: {final_count} | Dupes: {n_dupes} | High Cardinality session_id Active | Schema Evolution: {base_date >= date(2026, 5, 10)}")
+    print(
+        f"[QUALITY CHECK] Date: {base_date} | Total Orders: {final_count} | Dupes: {n_dupes} | High Cardinality session_id Active | Schema Evolution: {base_date >= date(2026, 5, 10)}"
+    )
 
     json_data = json.dumps(orders, indent=2)
     json_bytes = json_data.encode("utf-8")
     bytes_io = io.BytesIO(json_bytes)
-    
+
     object_name = (
         f"raw/orders/dt={base_date}/orders_{int(datetime.utcnow().timestamp())}.json"
     )
@@ -215,7 +221,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        parsed_start_date = datetime.strptime(str(args.start_date), "%Y-%m-%d").date() + timedelta(days=1)
+        parsed_start_date = datetime.strptime(
+            str(args.start_date), "%Y-%m-%d"
+        ).date() + timedelta(days=1)
     except ValueError:
         raise ValueError(
             f"Invalid date format for --start_date: '{args.start_date}'. Use YYYY-MM-DD."

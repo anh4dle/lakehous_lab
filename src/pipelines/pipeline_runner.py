@@ -9,6 +9,7 @@ from src.utils.spark_io import (
 from src.core.logger import get_logger
 from src.utils.validation import validate_and_split_dataframe
 from src.core.config import BaseConfig, ProcessingConfig
+
 logger = get_logger(__name__)
 
 
@@ -21,7 +22,7 @@ class LakehousePipelineRunner:
         pipeline_config: BaseConfig,
         date_plan: ProcessingConfig,
     ):
-        #Get configs
+        # Get configs
         pipeline_name = pipeline_config.PIPELINE_NAME
         source_name = pipeline_config.SOURCE_NAME
         target_table = pipeline_config.TABLE_NAME
@@ -34,8 +35,8 @@ class LakehousePipelineRunner:
             return
         start_dt = date_plan.start_date
         end_dt = date_plan.end_date
-        
-        #Read new data from source
+
+        # Read new data from source
         df_source = read_new_data(
             spark_client=self.spark_client,
             source=source_name,
@@ -49,14 +50,16 @@ class LakehousePipelineRunner:
             logger.info("No new data found for %s", pipeline_name)
             return
         if source_type == "iceberg":
-            #Validate source schemas, business rules, and split into clean and quarantine
+            # Validate source schemas, business rules, and split into clean and quarantine
             df_source, df_quarantine = validate_and_split_dataframe(
                 df_source, source_name
             )
             self.write_quarantine_rows(df_quarantine, pipeline_name, primary_keys)
-        #Transform source data to target table schema
+        # Transform source data to target table schema
         df_transformed = transform_fn(df_source)
-        self.merge_and_update_registry_table(df_transformed, date_plan, pipeline_name, target_table, primary_keys)
+        self.merge_and_update_registry_table(
+            df_transformed, date_plan, pipeline_name, target_table, primary_keys
+        )
 
     def run_multi_source_pipeline(
         self,
@@ -64,7 +67,7 @@ class LakehousePipelineRunner:
         sources: dict,
         plan: ProcessingConfig,
     ):
-        #Get pipeline config
+        # Get pipeline config
         pipeline_name = pipeline_config.PIPELINE_NAME
         target_table = pipeline_config.TABLE_NAME
         primary_keys = pipeline_config.PRIMARY_KEYS
@@ -74,12 +77,12 @@ class LakehousePipelineRunner:
         if plan is None:
             logger.info("No new data found for %s", pipeline_name)
             return
-        
+
         start_date = plan.start_date
         end_date = plan.end_date
         read_dfs = {}
         quarantine_dfs = {}
-        #Read source table into DataFrames
+        # Read source table into DataFrames
         for alias, table_name in sources.items():
             df_source = read_new_data(
                 spark_client=self.spark_client,
@@ -94,7 +97,6 @@ class LakehousePipelineRunner:
             )
             read_dfs[alias] = df_source
             quarantine_dfs[alias] = df_quarantine
-            
 
         if any(df is None for df in read_dfs.values()):
             logger.info(
@@ -102,19 +104,21 @@ class LakehousePipelineRunner:
                 pipeline_name,
             )
             return
-        #Transform source data to target table schema
+        # Transform source data to target table schema
         df_transformed = transform_fn(**read_dfs)
         for k, df_quarantine in quarantine_dfs.items():
             self.write_quarantine_rows(df_quarantine, pipeline_name, primary_keys)
-        self.merge_and_update_registry_table(df_transformed, plan, pipeline_name, target_table, primary_keys)
-        
+        self.merge_and_update_registry_table(
+            df_transformed, plan, pipeline_name, target_table, primary_keys
+        )
+
     def merge_and_update_registry_table(
         self,
         df_transformed,
         plan: ProcessingConfig,
         pipeline_name: str,
         target_table: str,
-        primary_keys: list[str]
+        primary_keys: list[str],
     ):
         try:
             df_count = df_transformed.count()
@@ -126,7 +130,7 @@ class LakehousePipelineRunner:
 
             if plan.mode == "backfill":
                 return
-            
+
             next_checkpoint = (plan.end_date + timedelta(days=1)).strftime("%Y-%m-%d")
 
             update_registry_table(
@@ -143,14 +147,14 @@ class LakehousePipelineRunner:
         except Exception:
             logger.exception("Failed to process pipeline %s", pipeline_name)
             raise
-    
+
     def write_quarantine_rows(self, df_quarantine, pipeline_name, primary_keys):
         quarantine_count = 0
-        
+
         if df_quarantine is not None:
             quarantine_count = df_quarantine.count()
 
-        #Write malformed rows to quarantine table
+        # Write malformed rows to quarantine table
         if quarantine_count > 0:
             logger.warning(
                 "Found %d malformed rows for pipeline %s. Routing to DLQ.",
@@ -167,4 +171,6 @@ class LakehousePipelineRunner:
                 table_name="iceberg.ops.quarantine_dlq",
                 primary_keys=primary_keys,
             )
-            logger.info("Successfully inserted %d rows to quarantine table", quarantine_count)
+            logger.info(
+                "Successfully inserted %d rows to quarantine table", quarantine_count
+            )

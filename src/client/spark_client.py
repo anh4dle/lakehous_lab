@@ -60,11 +60,19 @@ class SparkClient:
             )
             .config("spark.hadoop.fs.s3a.endpoint.region", "us-east-1")
             .config("spark.hadoop.fs.s3a.region", "us-east-1")
-            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
-            .config("spark.sql.catalog.iceberg", "org.apache.iceberg.spark.SparkCatalog") \
+            .config(
+                "spark.sql.extensions",
+                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+            )
+            .config(
+                "spark.sql.catalog.iceberg", "org.apache.iceberg.spark.SparkCatalog"
+            )
             .config("spark.sql.codegen.wholeStage", "false")
             .config("spark.hadoop.fs.s3.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
-            .config("spark.hadoop.fs.AbstractFileSystem.s3.impl", "org.apache.hadoop.fs.s3a.AnnotationBasedFS")
+            .config(
+                "spark.hadoop.fs.AbstractFileSystem.s3.impl",
+                "org.apache.hadoop.fs.s3a.AnnotationBasedFS",
+            )
             # .config("spark.sql.iceberg.write.accept-schema-changes", "true")
             .getOrCreate()
         )
@@ -80,26 +88,10 @@ class SparkClient:
 
     def bootstrap_sql_tables(self):
         sql_dir = ROOT_DIR / "sql" / "all_ddl.sql"
-        
-        # with open(sql_dir) as f:
-        #     sql = f.read()
-        #     for statement in sql.split(";"):
-        #         if statement.strip():
-        #             self.spark.sql(statement)
-        #             logger.info("SQL executed: %s", statement)
-        self.spark.sql("""
-                       CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
-    event_id        STRING,
-    event_time      TIMESTAMP,
-    customer        STRUCT<
-        customer_id STRING,
-        name STRING,
-        email STRING,
-        country STRING,
-        created_at STRING
-    >,
-    _ingested_at    TIMESTAMP
-)
-USING iceberg
-PARTITIONED BY (days(event_time));
-                       """)
+
+        with open(sql_dir) as f:
+            sql = f.read()
+            for statement in sql.split(";"):
+                if statement.strip():
+                    self.spark.sql(statement)
+                    logger.info("SQL executed: %s", statement)

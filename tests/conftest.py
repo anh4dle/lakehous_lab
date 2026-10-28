@@ -11,8 +11,8 @@ def spark_client():
     """
     os.environ.setdefault("RUN_MODE", "local")
     client = SparkClient(env="local")
-    
+
     yield client
-    
+
     if client.spark:
         client.spark.stop()

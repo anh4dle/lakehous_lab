@@ -47,7 +47,7 @@ def transform_to_bronze_customer_events(raw_df: DataFrame) -> DataFrame:
             col("customer.country").alias("country"),
             col("customer.created_at").alias("created_at"),
             col("customer.device_id").alias("device_id"),
-            col("customer.tier").alias("tier")
+            col("customer.tier").alias("tier"),
         ).alias("customer"),
         col("_ingested_at"),
     )
@@ -71,7 +71,7 @@ def transform_to_bronze_orders_events(raw_df: DataFrame) -> DataFrame:
             col("order.items").cast("int").alias("items"),
             col("order.created_at").cast("string").alias("created_at"),
             col("order.session_id").cast("string").alias("session_id"),
-            col("order.promo_code").cast("string").alias("promo_code")
+            col("order.promo_code").cast("string").alias("promo_code"),
         ).alias("order"),
         to_timestamp(lit(execution_time)).alias("_ingested_at"),
     )
@@ -170,6 +170,7 @@ def transform_to_silver_fact_orders(bronze_orders_df: DataFrame) -> DataFrame:
 #     )
 
 #     return gold_df
+
 
 def transform_to_gold_daily_orders_by_country(
     silver_orders_df: DataFrame, silver_customers_df: DataFrame

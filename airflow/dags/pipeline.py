@@ -3,6 +3,7 @@ from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.operators.python import PythonOperator
 from src.pipelines.mock_data_generator_v2 import main as generate_data
+
 default_args = {
     "owner": "data_engineering",
     "retries": 1,
@@ -40,11 +41,9 @@ with DAG(
     max_active_tasks=1,
 ) as dag:
     source_to_raw = PythonOperator(
-        task_id="source_to_raw",
-        python_callable=generate_data,
-        op_kwargs={"argv": []}   
+        task_id="source_to_raw", python_callable=generate_data, op_kwargs={"argv": []}
     )
-        
+
     raw_to_bronze = SparkSubmitOperator(
         task_id="raw_to_bronze",
         application="/opt/airflow/dags/scripts/bronze_pipeline.py",
