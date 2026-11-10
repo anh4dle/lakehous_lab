@@ -88,3 +88,22 @@ CREATE TABLE IF NOT EXISTS iceberg.ops.quarantine_dlq (
     _quarantine_timestamp TIMESTAMP
 )
 USING iceberg;
+
+
+CREATE TABLE sku_inventory (
+    sku_id VARCHAR(20) PRIMARY KEY,
+    product_name VARCHAR(100) NOT NULL,
+    warehouse_code VARCHAR(10) NOT NULL,   -- e.g., 'HN-01', 'HCM-02'
+    available_qty INT NOT NULL,
+    reorder_threshold INT NOT NULL DEFAULT 10,
+    updated_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE live_stock_status (
+    sku_id VARCHAR(20) PRIMARY KEY,
+    product_name VARCHAR(100),
+    warehouse_code VARCHAR(10),
+    available_qty INT,
+    stock_badge VARCHAR(20),      -- 'IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK'
+    last_updated TIMESTAMP
+);

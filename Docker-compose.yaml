@@ -149,10 +149,20 @@ services:
     user: "0:0"
   postgres:
     image: postgres:16
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
+    command: 
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=4"
+      - "-c"
+      - "max_wal_senders=4"
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
@@ -172,13 +182,13 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
     volumes:
-      - minio_data:/data   # <--- Changed from ./data/minio:/data
+      - minio_data:/data
   iceberg-rest:
     image: tabulario/iceberg-rest
     container_name: iceberg-rest
     ports:
       - "8181:8181"
-    user: root  # Gives root permissions to read/write into the mounted Docker volume
+    user: root
     environment:
       - CATALOG_WAREHOUSE=s3://warehouse
       - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
@@ -197,12 +207,94 @@ services:
     image: trinodb/trino:latest
     container_name: trino
     ports:
-      - "8085:8080"  # Note: If Airflow apiserver uses 8080, change this to "8085:8080"
+      - "8085:8080"
     volumes:
-      - ./trino/catalog:/etc/trino/catalog   # your iceberg.properties etc.
+      - ./trino/catalog:/etc/trino/catalog
+    restart: always
+  # --- CDC & Streaming Stack ---
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+  debezium:
+    image: quay.io/debezium/connect:2.7
+    container_name: debezium
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+    restart: always
+  flink-jobmanager:
+    image: flink:1.20-java17
+    container_name: flink-jobmanager
+    ports:
+      - "8082:8081"
+    command: jobmanager
+    volumes:
+      - ./jars:/opt/flink/usrlib
+      - ./src:/opt/flink/src
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=us-east-1
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+    restart: always
+  flink-taskmanager:
+    image: flink:1.20-java17
+    container_name: flink-taskmanager
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    volumes:
+      - ./jars:/opt/flink/usrlib
+      - ./src:/opt/flink/src
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=us-east-1
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
     restart: always
 volumes:
   postgres-db-volume:
   iceberg_catalog_data:
   minio_data:
-  superset_home:
+  kafka_data:

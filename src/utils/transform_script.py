@@ -119,59 +119,6 @@ def transform_to_silver_fact_orders(bronze_orders_df: DataFrame) -> DataFrame:
     )
 
 
-# =====================================================================
-# 3. GOLD TRANSFORMATIONS
-# =====================================================================
-
-
-# def transform_to_gold_daily_orders_by_country(
-#     silver_orders_df: DataFrame, silver_customers_df: DataFrame
-# ) -> DataFrame:
-#     """
-#     Joins Silver Orders and Silver Customers on customer_id to calculate
-#     daily metrics per country for iceberg.gold.daily_orders_by_country.
-#     """
-#     # 1. Truncate event_time to DATE for report_date
-#     orders_with_date = silver_orders_df.withColumn(
-#         "report_date", date_trunc("day", col("event_time")).cast("date")
-#     )
-
-#     # 2. Join Orders with Customers to map customer_id -> country
-#     # Note: Select only necessary columns from customer to avoid duplicate event_id/event_time columns
-#     window_spec = Window.partitionBy("customer_id").orderBy(col("event_time").desc())
-#     customers_lookup = (
-#         silver_customers_df.withColumn("rn", row_number().over(window_spec))
-#         .filter(col("rn") == 1)
-#         .select("customer_id", "country")
-#     )
-#     # customers_lookup = silver_customers_df.select("customer_id", "country").distinct()
-
-#     joined_df = orders_with_date.join(customers_lookup, on="customer_id", how="inner")
-
-#     # 3. Aggregate daily metrics
-#     gold_df = (
-#         joined_df.groupBy("report_date", "country")
-#         .agg(
-#             count("order_id").alias("order_count"),
-#             _sum("amount").cast("decimal(18,2)").alias("total_amount"),
-#             (_sum("amount") / count("order_id"))
-#             .cast("decimal(18,2)")
-#             .alias("avg_order_value"),
-#             countDistinct("customer_id").alias("distinct_customers"),
-#         )
-#         .select(
-#             "report_date",
-#             "country",
-#             "order_count",
-#             "total_amount",
-#             "avg_order_value",
-#             "distinct_customers",
-#         )
-#     )
-
-#     return gold_df
-
-
 def transform_to_gold_daily_orders_by_country(
     silver_orders_df: DataFrame, silver_customers_df: DataFrame
 ) -> DataFrame:
