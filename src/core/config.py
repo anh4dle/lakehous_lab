@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 from typing import Literal
+import os
 from pathlib import Path
 from src.utils.transform_script import (
     transform_to_bronze_customer_events,
@@ -91,3 +92,20 @@ class ProcessingConfig:
     def __post_init__(self):
         if self.start_date > self.end_date:
             raise ValueError("start_date must be <= end_date")
+
+
+JAR_DIR = Path(os.getenv("FLINK_JAR_DIR", Path(__file__).resolve().parents[2] / "jars"))
+FLINK_REST_HOST = os.getenv("FLINK_REST_HOST", "localhost")
+FLINK_REST_PORT = os.getenv("FLINK_REST_PORT", "8082")
+
+KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
+PG_URL = os.getenv("PG_URL", "jdbc:postgresql://postgres:5432/airflow")
+PG_USER = os.getenv("PG_USER", "airflow")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "airflow")
+
+JAR_FILES = [
+    "flink-connector-jdbc-core-4.0.0-2.0.jar",
+    "flink-connector-jdbc-postgres-4.0.0-2.0.jar",
+    "flink-sql-connector-kafka-4.0.0-2.0.jar",
+    "postgresql-42.7.3.jar",
+]

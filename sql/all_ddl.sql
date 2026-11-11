@@ -107,3 +107,53 @@ CREATE TABLE live_stock_status (
     stock_badge VARCHAR(20),      -- 'IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK'
     last_updated TIMESTAMP
 );
+
+--Flink source table for streaming data from Kafka (Debezium CDC)
+CREATE TABLE sku_inventory_source (
+    sku_id STRING,
+    product_name STRING,
+    warehouse_code STRING,
+    available_qty INT,
+    reorder_threshold INT,
+    updated_at TIMESTAMP(3),
+    PRIMARY KEY (sku_id) NOT ENFORCED
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'pg_server.public.sku_inventory',
+    'properties.bootstrap.servers' = 'kafka:9092',
+    'properties.group.id' = 'flink-sku-badge-processor',
+    'scan.startup.mode' = 'earliest-offset',
+    'format' = 'debezium-json'
+);
+
+--Flink transformation query
+INSERT INTO live_stock_status
+SELECT 
+    sku_id,
+    product_name,
+    warehouse_code,
+    available_qty,
+    CASE 
+        WHEN available_qty <= 0 THEN 'OUT_OF_STOCK'
+        WHEN available_qty <= reorder_threshold THEN 'LOW_STOCK'
+        ELSE 'IN_STOCK'
+    END AS stock_badge,
+    updated_at AS last_updated
+FROM sku_inventory_source;
+
+--Sink table
+CREATE TABLE live_stock_status (
+    sku_id STRING,
+    product_name STRING,
+    warehouse_code STRING,
+    available_qty INT,
+    stock_badge STRING,
+    last_updated TIMESTAMP(3),
+    PRIMARY KEY (sku_id) NOT ENFORCED
+) WITH (
+    'connector' = 'jdbc',
+    'url' = 'jdbc:postgresql://postgres:5432/airflow',
+    'table-name' = 'live_stock_status',
+    'username' = 'airflow',
+    'password' = 'airflow'
+);

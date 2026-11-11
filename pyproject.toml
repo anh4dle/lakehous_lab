@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "apache-flink==2.0.0",
     "minio>=7.2.20",
     "pandas==2.2.3",
     "pandera[pyspark]>=0.34.1",
@@ -15,3 +16,6 @@ dependencies = [
     "python-dotenv>=1.2.4",
     "ruff>=0.15.20",
 ]
+
+[tool.uv.extra-build-dependencies]
+apache-beam = ["setuptools<82"]

@@ -27,7 +27,7 @@ def create_tables():
             updated_at TIMESTAMP NOT NULL);
         """)
     cur.execute("""
-        CREATE TABLE live_stock_status (
+        CREATE TABLE IF NOT EXISTS live_stock_status (
             sku_id VARCHAR(20) PRIMARY KEY,
             product_name VARCHAR(100),
             warehouse_code VARCHAR(10),

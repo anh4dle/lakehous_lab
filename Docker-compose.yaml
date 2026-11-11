@@ -254,11 +254,13 @@ services:
       OFFSET_STORAGE_TOPIC: my_connect_offsets
       STATUS_STORAGE_TOPIC: my_connect_statuses
     restart: always
+
   flink-jobmanager:
-    image: flink:1.20-java17
+    image: flink:2.0.0-java17
     container_name: flink-jobmanager
     ports:
       - "8082:8081"
+      - "6123:6123"
     command: jobmanager
     volumes:
       - ./jars:/opt/flink/usrlib
@@ -273,8 +275,9 @@ services:
         s3.endpoint: http://minio:9000
         s3.path.style.access: true
     restart: always
+
   flink-taskmanager:
-    image: flink:1.20-java17
+    image: flink:2.0.0-java17
     container_name: flink-taskmanager
     depends_on:
       - flink-jobmanager
@@ -293,6 +296,7 @@ services:
         s3.endpoint: http://minio:9000
         s3.path.style.access: true
     restart: always
+
 volumes:
   postgres-db-volume:
   iceberg_catalog_data:
