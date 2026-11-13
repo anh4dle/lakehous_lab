@@ -1,5 +1,11 @@
+
+-- ============================================================
+-- BRONZE – raw events with expanded nested fields
+-- ============================================================
+
 DROP TABLE IF EXISTS iceberg.bronze.fact_customer_events;
-CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
+
+CREATE TABLE IF NOT EXISTS iceberg.bronze.fact_customer_events (
     event_id        STRING,
     event_time      TIMESTAMP,
     customer        STRUCT<
@@ -7,45 +13,61 @@ CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_customer_events (
         name STRING,
         email STRING,
         country STRING,
-        created_at STRING
+        created_at STRING,
+        device_id STRING,
+        tier STRING
     >,
     _ingested_at    TIMESTAMP
 )
 USING iceberg
 PARTITIONED BY (days(event_time));
 
+
 DROP TABLE IF EXISTS iceberg.bronze.fact_orders_events;
-CREATE TABLE IF NOT EXISTS  iceberg.bronze.fact_orders_events (
+
+CREATE TABLE IF NOT EXISTS iceberg.bronze.fact_orders_events (
     event_id        STRING,
     event_time      TIMESTAMP,
-    order    STRUCT<
+    `order`         STRUCT<
         order_id STRING,
         customer_id STRING,
         amount FLOAT,
         status STRING,
         items INT,
-        created_at STRING
+        created_at STRING,
+        session_id STRING,
+        promo_code STRING
     >,
     _ingested_at    TIMESTAMP
 )
 USING iceberg
 PARTITIONED BY (days(event_time));
 
+
+-- ============================================================
+-- SILVER – corresponding flattened columns
+-- ============================================================
+
 DROP TABLE IF EXISTS iceberg.silver.dim_customer;
-CREATE TABLE IF NOT EXISTS  iceberg.silver.dim_customer (
+
+CREATE TABLE IF NOT EXISTS iceberg.silver.dim_customer (
     event_id        STRING,
     event_time      TIMESTAMP,
-    customer_id      STRING,
-    name             STRING,
-    email            STRING,
-    country          STRING,
+    customer_id     STRING,
+    name            STRING,
+    email           STRING,
+    country         STRING,
+    device_id       STRING,
+    tier            STRING,
     _ingested_at    TIMESTAMP
 )
 USING iceberg
 PARTITIONED BY (days(event_time));
 
+
 DROP TABLE IF EXISTS iceberg.silver.fact_orders;
-CREATE TABLE IF NOT EXISTS  iceberg.silver.fact_orders (
+
+CREATE TABLE IF NOT EXISTS iceberg.silver.fact_orders (
     event_id        STRING,
     event_time      TIMESTAMP,
     customer_id     STRING,
@@ -53,41 +75,60 @@ CREATE TABLE IF NOT EXISTS  iceberg.silver.fact_orders (
     amount          DECIMAL(18,2),
     status          STRING,
     items           INT,
+    session_id      STRING,
+    promo_code      STRING,
     _ingested_at    TIMESTAMP
 )
 USING iceberg
 PARTITIONED BY (days(event_time));
 
+
+-- ============================================================
+-- GOLD – aggregated business metrics
+-- ============================================================
+
 DROP TABLE IF EXISTS iceberg.gold.daily_orders_by_country;
-CREATE TABLE IF NOT EXISTS  iceberg.gold.daily_orders_by_country (
+
+CREATE TABLE IF NOT EXISTS iceberg.gold.daily_orders_by_country (
     report_date         DATE,
-    country              STRING,
-    order_count          BIGINT,
-    total_amount         DECIMAL(18,2),
-    avg_order_value      DECIMAL(18,2),
-    distinct_customers   BIGINT,
-    _ingested_at    TIMESTAMP
+    country             STRING,
+    order_count         BIGINT,
+    total_amount        DECIMAL(18,2),
+    avg_order_value     DECIMAL(18,2),
+    distinct_customers  BIGINT,
+    _ingested_at        TIMESTAMP
 )
 USING iceberg
 PARTITIONED BY (report_date);
 
 
+-- ============================================================
+-- METADATA – ingestion tracking
+-- ============================================================
+
 DROP TABLE IF EXISTS iceberg.metadata.ingestion_registry;
+
 CREATE TABLE IF NOT EXISTS iceberg.metadata.ingestion_registry (
-    pipeline_name STRING,
-    next_date STRING,
-    load_timestamp TIMESTAMP,
-    status STRING
-) USING iceberg;
-
-
-CREATE TABLE IF NOT EXISTS iceberg.ops.quarantine_dlq (
-    pipeline_string    STRING,
-    raw_payload        STRING,     -- The entire malformed row serialized as JSON
-    _error_reason      STRING,
-    _quarantine_timestamp TIMESTAMP
+    pipeline_name   STRING,
+    next_date       STRING,
+    load_timestamp  TIMESTAMP,
+    status          STRING
 )
 USING iceberg;
+
+
+-- ============================================================
+-- OPS – dead-letter / quarantine records
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS iceberg.ops.quarantine_dlq (
+    pipeline_string         STRING,
+    raw_payload             STRING,
+    _error_reason           STRING,
+    _quarantine_timestamp   TIMESTAMP
+)
+USING iceberg;
+
 
 
 CREATE TABLE sku_inventory (

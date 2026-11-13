@@ -1,0 +1,16 @@
+project: ecommerce_features
+provider: local
+
+registry:
+  registry_type: sql
+  path: postgresql+psycopg://airflow:airflow@postgres:5432/airflow
+  cache_ttl_seconds: 60
+
+online_store:
+  type: redis
+  connection_string: "redis:6379,db=1"
+
+offline_store:
+  type: duckdb
+
+entity_key_serialization_version: 3

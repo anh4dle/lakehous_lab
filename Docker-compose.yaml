@@ -296,6 +296,33 @@ services:
         s3.endpoint: http://minio:9000
         s3.path.style.access: true
     restart: always
+  feast-server:
+    image: python:3.11-slim
+    container_name: feast-server
+    ports:
+      - "6566:6566"
+    volumes:
+      - ./feature_repo:/feature_repo
+    working_dir: /feature_repo
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://minio:9000
+    command: >
+      bash -c "pip install 'feast[postgres,redis,duckdb]' pyiceberg &&
+               feast apply &&
+               feast serve -h 0.0.0.0 -p 6566"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iceberg-rest:
+        condition: service_started
+      minio:
+        condition: service_started
+    restart: always
 
 volumes:
   postgres-db-volume:
