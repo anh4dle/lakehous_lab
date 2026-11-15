@@ -12,3 +12,6 @@ __pycache__
 jars
 
 state.json
+.vscode
+.DS_Store
+.python-version
