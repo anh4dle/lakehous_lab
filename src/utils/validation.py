@@ -11,6 +11,7 @@ from pyspark.sql.types import (
 )
 from src.core.logger import get_logger
 from pyspark.storagelevel import StorageLevel
+
 logger = get_logger(__name__)
 """
 - This class define the table schemas and the validation mode(strict or not)
@@ -27,7 +28,7 @@ FACT_CUSTOMER_EVENTS = {
         "event_id": {"dtype": StringType(), "nullable": True},
         "event_time": {"dtype": TimestampType(), "nullable": True},
         "_ingested_at": {"dtype": TimestampType(), "nullable": True},
-    }
+    },
 }
 
 # ============================================================
@@ -40,7 +41,7 @@ FACT_ORDERS_EVENTS = {
         "event_id": {"dtype": StringType(), "nullable": True},
         "event_time": {"dtype": TimestampType(), "nullable": True},
         "_ingested_at": {"dtype": TimestampType(), "nullable": True},
-    }
+    },
 }
 
 # ============================================================
@@ -59,7 +60,7 @@ DIM_CUSTOMER = {
         "device_id": {"dtype": StringType(), "nullable": True},
         "tier": {"dtype": StringType(), "nullable": True},
         "_ingested_at": {"dtype": TimestampType(), "nullable": True},
-    }
+    },
 }
 
 # ============================================================
@@ -79,7 +80,7 @@ FACT_ORDERS = {
         "session_id": {"dtype": StringType(), "nullable": True},
         "promo_code": {"dtype": StringType(), "nullable": True},
         "_ingested_at": {"dtype": TimestampType(), "nullable": True},
-    }
+    },
 }
 
 # ============================================================
@@ -95,7 +96,7 @@ DAILY_ORDERS_BY_COUNTRY = {
         "total_amount": {"dtype": DecimalType(18, 2), "nullable": True},
         "avg_order_value": {"dtype": DecimalType(18, 2), "nullable": True},
         "distinct_customers": {"dtype": LongType(), "nullable": True},
-    }
+    },
 }
 
 # ============================================================
@@ -145,23 +146,19 @@ def handle_missing_columns(df: DataFrame, contract: dict) -> DataFrame:
     logger.warning("⚠️ Columns missing from source, filled with NULL: %s", missing)
     return df
 
+
 def handle_datatype_drift(df: DataFrame, contract: dict) -> DataFrame:
     """Detects type mismatches against contract and handles safe widening vs dangerous drift."""
     schema_cols = contract["columns"]
 
     # Rank integer types by width/capacity to evaluate drift safety
-    INT_TYPE_RANK = {
-        T.ByteType: 1,
-        T.ShortType: 2,
-        T.IntegerType: 3,
-        T.LongType: 4
-    }
+    INT_TYPE_RANK = {T.ByteType: 1, T.ShortType: 2, T.IntegerType: 3, T.LongType: 4}
 
     for col_name, col_config in schema_cols.items():
         if col_name in df.columns:
             incoming_type = df.schema[col_name].dataType
             expected_type = col_config["dtype"]
-            
+
             incoming_cls = type(incoming_type)
             expected_cls = type(expected_type)
 
@@ -177,22 +174,26 @@ def handle_datatype_drift(df: DataFrame, contract: dict) -> DataFrame:
                         )
                         # No exception raised; we allow the wider incoming type to pass through
                         continue
-                    
+
                     # Dangerous Downcasting: Incoming data is narrower than contract or trying to force wide into narrow
                     else:
                         logger.error(
                             f"❌ Dangerous data narrowing detected for column '{col_name}': "
                             f"Cannot safely fit incoming {incoming_cls.__name__} into expected contract type {expected_cls.__name__}."
                         )
-                        raise TypeError(f"Dangerous data drift on column '{col_name}': {incoming_cls.__name__} to {expected_cls.__name__}")
-                
+                        raise TypeError(
+                            f"Dangerous data drift on column '{col_name}': {incoming_cls.__name__} to {expected_cls.__name__}"
+                        )
+
                 # Scenario 2: Completely incompatible types (e.g., String vs Integer, Struct vs Array)
                 else:
                     logger.error(
                         f"❌ Incompatible datatype drift detected for column '{col_name}': "
                         f"Incoming: {incoming_cls.__name__} but expected contract: {expected_cls.__name__}."
                     )
-                    raise TypeError(f"Incompatible datatype drift on column '{col_name}'")
+                    raise TypeError(
+                        f"Incompatible datatype drift on column '{col_name}'"
+                    )
 
     return df
 
@@ -205,11 +206,13 @@ def handle_extra_cols(df: DataFrame, contract: dict) -> DataFrame:
 
     if contract["strict"]:
         return df.select(*contract_cols)
-    
+
     return df.select(*contract_cols, *extra_cols)
 
 
-def validate_values_and_key_constraints(df: DataFrame, table_name: str) -> tuple[DataFrame, DataFrame]:
+def validate_values_and_key_constraints(
+    df: DataFrame, table_name: str
+) -> tuple[DataFrame, DataFrame]:
     """Evaluates row-level business rules and splits into clean and quarantine streams."""
     is_valid = F.lit(True)
     if "silver.fact_orders" in table_name:
@@ -228,7 +231,9 @@ def validate_values_and_key_constraints(df: DataFrame, table_name: str) -> tuple
     clean_df = flagged_df.filter(F.col("_is_valid") == True).drop("_is_valid")
     quarantine_df = flagged_df.filter(F.col("_is_valid") == False).drop("_is_valid")
 
-    logger.info("Flag and Split validation completed successfully for table %s.", table_name)
+    logger.info(
+        "Flag and Split validation completed successfully for table %s.", table_name
+    )
     return clean_df, quarantine_df
 
 
@@ -240,11 +245,13 @@ def validate_and_split_dataframe(
     and splits into (clean_df, quarantine_df).
     """
     if df is None or df.rdd.isEmpty():
-        logger.info("Empty dataframe passed to validate_and_split_dataframe for %s", table_name)
+        logger.info(
+            "Empty dataframe passed to validate_and_split_dataframe for %s", table_name
+        )
         return df, None
 
     contract = get_contract(table_name)
-    
+
     # Apply native handlers
     df = handle_missing_columns(df, contract)
     df = handle_datatype_drift(df, contract)

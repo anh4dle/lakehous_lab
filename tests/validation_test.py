@@ -47,13 +47,13 @@ def test_fact_orders_events_validation(spark_client):
         Row(
             event_id="ord_evt_001",
             event_time=datetime(2026, 5, 1, 11, 0, 0),
-            _ingested_at=datetime(2026, 5, 1, 11, 5, 0)
+            _ingested_at=datetime(2026, 5, 1, 11, 5, 0),
         ),
         # Invalid row (missing event_id)
         Row(
             event_id=None,
             event_time=datetime(2026, 5, 1, 11, 10, 0),
-            _ingested_at=datetime(2026, 5, 1, 11, 15, 0)
+            _ingested_at=datetime(2026, 5, 1, 11, 15, 0),
         ),
     ]
     df = spark_client.spark.createDataFrame(data)
@@ -107,7 +107,7 @@ def test_fact_orders_validation(spark_client):
             items=2,
             session_id="sess_abc",
             promo_code="SUMMER20",
-            _ingested_at=datetime(2026, 5, 1, 12, 5, 0)
+            _ingested_at=datetime(2026, 5, 1, 12, 5, 0),
         ),
         # Invalid row (null customer_id violates rule)
         Row(
@@ -120,7 +120,7 @@ def test_fact_orders_validation(spark_client):
             items=1,
             session_id="sess_def",
             promo_code=None,
-            _ingested_at=datetime(2026, 5, 1, 12, 5, 0)
+            _ingested_at=datetime(2026, 5, 1, 12, 5, 0),
         ),
         # Invalid row (negative amount violates rule)
         Row(
@@ -133,7 +133,7 @@ def test_fact_orders_validation(spark_client):
             items=1,
             session_id="sess_ghi",
             promo_code=None,
-            _ingested_at=datetime(2026, 5, 1, 12, 5, 0)
+            _ingested_at=datetime(2026, 5, 1, 12, 5, 0),
         ),
     ]
     df = spark_client.spark.createDataFrame(data)
@@ -155,7 +155,7 @@ def test_daily_orders_by_country_validation(spark_client):
             order_count=150,
             total_amount=Decimal("12500.00"),
             avg_order_value=Decimal("83.33"),
-            distinct_customers=120
+            distinct_customers=120,
         ),
         # Invalid row (negative total_amount violates table constraints conceptually if applied)
         Row(
@@ -164,7 +164,7 @@ def test_daily_orders_by_country_validation(spark_client):
             order_count=10,
             total_amount=Decimal("-500.00"),
             avg_order_value=Decimal("-50.00"),
-            distinct_customers=8
+            distinct_customers=8,
         ),
     ]
     df = spark_client.spark.createDataFrame(data)

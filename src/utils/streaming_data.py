@@ -4,6 +4,7 @@ from datetime import datetime
 import psycopg2
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
@@ -12,6 +13,7 @@ DB_CONFIG = {
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASSWORD"),
 }
+
 
 def create_tables():
     conn = psycopg2.connect(**DB_CONFIG)
@@ -35,7 +37,8 @@ def create_tables():
             stock_badge VARCHAR(20),
             last_updated TIMESTAMP);
         """)
-    
+
+
 PRODUCTS = [
     ("SKU-101", "Wireless Mechanical Keyboard", "HN-01", 25, 10),
     ("SKU-102", "USB-C Docking Station", "HN-01", 18, 8),
@@ -44,13 +47,18 @@ PRODUCTS = [
     ("SKU-105", "Noise-Cancelling Headphones", "HN-01", 15, 5),
 ]
 
+
 def seed_data(cur):
     for sku_id, name, wh, qty, threshold in PRODUCTS:
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO sku_inventory (sku_id, product_name, warehouse_code, available_qty, reorder_threshold, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (sku_id) DO NOTHING;
-        """, (sku_id, name, wh, qty, threshold, datetime.utcnow()))
+        """,
+            (sku_id, name, wh, qty, threshold, datetime.utcnow()),
+        )
+
 
 def run_stream():
     conn = psycopg2.connect(**DB_CONFIG)
@@ -61,7 +69,9 @@ def run_stream():
 
     while True:
         sku_id = random.choice(PRODUCTS)[0]
-        cur.execute("SELECT available_qty FROM sku_inventory WHERE sku_id = %s;", (sku_id,))
+        cur.execute(
+            "SELECT available_qty FROM sku_inventory WHERE sku_id = %s;", (sku_id,)
+        )
         current_qty = cur.fetchone()[0]
 
         if current_qty <= 2:
@@ -74,14 +84,20 @@ def run_stream():
             new_qty = current_qty - sold
             action = f"SALE (-{sold})"
 
-        cur.execute("""
+        cur.execute(
+            """
             UPDATE sku_inventory
             SET available_qty = %s, updated_at = %s
             WHERE sku_id = %s;
-        """, (new_qty, datetime.utcnow(), sku_id))
+        """,
+            (new_qty, datetime.utcnow(), sku_id),
+        )
 
-        print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] {sku_id} | {action} | New Qty: {new_qty}")
+        print(
+            f"[{datetime.utcnow().strftime('%H:%M:%S')}] {sku_id} | {action} | New Qty: {new_qty}"
+        )
         time.sleep(3)
+
 
 if __name__ == "__main__":
     create_tables()

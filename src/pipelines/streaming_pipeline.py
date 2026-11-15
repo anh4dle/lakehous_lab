@@ -1,13 +1,22 @@
 import time
+
 START_TS_MS = int(time.time() * 1000)
 from pyflink.common import Configuration
 from pyflink.table import EnvironmentSettings, TableEnvironment
-from src.core.config import (JAR_DIR, FLINK_REST_HOST, 
-                             FLINK_REST_PORT, KAFKA_BOOTSTRAP, PG_URL, PG_USER, PG_PASSWORD, JAR_FILES)
+from src.core.config import (
+    JAR_DIR,
+    FLINK_REST_HOST,
+    FLINK_REST_PORT,
+    KAFKA_BOOTSTRAP,
+    PG_URL,
+    PG_USER,
+    PG_PASSWORD,
+    JAR_FILES,
+)
 
 
 def build_table_env() -> TableEnvironment:
-    """TableEnvironment is the client object to use Flink Table API and SQL"""    
+    """TableEnvironment is the client object to use Flink Table API and SQL"""
     config = Configuration()
     config.set_string("execution.target", "remote")
     config.set_string("rest.address", FLINK_REST_HOST)
@@ -32,6 +41,7 @@ def build_table_env() -> TableEnvironment:
 
     t_env.get_config().set("pipeline.jars", ";".join(p.as_uri() for p in jar_paths))
     return t_env
+
 
 def create_tables(t_env: TableEnvironment) -> None:
     """
@@ -78,17 +88,38 @@ def create_tables(t_env: TableEnvironment) -> None:
         )
     """)
 
+    t_env.execute_sql(f"""
+        CREATE TABLE redis_stock_status (
+            sku_id STRING,
+            product_name STRING,
+            warehouse_code STRING,
+            available_qty INT,
+            stock_badge STRING,
+            last_updated TIMESTAMP(3),
+            PRIMARY KEY (sku_id) NOT ENFORCED
+        ) WITH (
+            'connector' = 'redis',
+            'host' = 'redis',
+            'port' = '6379',
+            'command' = 'SET',
+            'data-type' = 'HASH',
+            'key-column' = 'sku_id'
+        )
+    """)
+
 
 def run_pipeline() -> None:
     """
-    Create the tables, processing logic and submit the job
+    Create the tables, processing logic and submit the job using a StatementSet
+    to write simultaneously to both PostgreSQL (Offline Store) and Redis (Online Store).
     """
     t_env = build_table_env()
     create_tables(t_env)
 
     statement_set = t_env.create_statement_set()
-    statement_set.add_insert_sql("""
-        INSERT INTO live_stock_status
+
+    # Common transformation query block used for both sinks
+    transform_query = """
         SELECT
             sku_id,
             product_name,
@@ -101,13 +132,30 @@ def run_pipeline() -> None:
             END AS stock_badge,
             updated_ts AS last_updated
         FROM sku_inventory_source
+    """
+
+    # Add insert into Postgres (Offline Store)
+    statement_set.add_insert_sql(f"""
+        INSERT INTO live_stock_status
+        {transform_query}
     """)
 
-    print(f"Submitting Flink streaming job to {FLINK_REST_HOST}:{FLINK_REST_PORT} ...")
+    # Add insert into Redis (Online Store)
+    statement_set.add_insert_sql(f"""
+        INSERT INTO redis_stock_status
+        {transform_query}
+    """)
+
+    print(
+        f"Submitting Flink streaming job with dual sinks (Postgres & Redis) to {FLINK_REST_HOST}:{FLINK_REST_PORT} ..."
+    )
     result = statement_set.execute()
     job_client = result.get_job_client()
     job_id = job_client.get_job_id() if job_client else "unknown"
-    print(f"Job submitted (id: {job_id}). UI: http://{FLINK_REST_HOST}:{FLINK_REST_PORT}")
+    print(
+        f"Job submitted (id: {job_id}). UI: http://{FLINK_REST_HOST}:{FLINK_REST_PORT}"
+    )
+
 
 if __name__ == "__main__":
     run_pipeline()
