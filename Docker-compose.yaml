@@ -43,41 +43,7 @@ x-airflow-common:
     postgres:
       condition: service_healthy
 services:
-  redis:
-    image: redis:7.2-bookworm
-    expose:
-      - 6379
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 30s
-      retries: 50
-      start_period: 30s
-    restart: always
-  spark:
-    build:
-      context: .
-      dockerfile: dockerfiles/spark.Dockerfile
-    container_name: spark
-    hostname: spark
-    ports:
-      - "7077:7077"
-      - "8081:8080"
-    volumes:
-      - ./spark/jobs:/opt/spark/jobs
-      - ./src/pipelines:/opt/spark/jobs
-      - ./jars:/opt/spark/extra_jars
-    command:
-      - /bin/bash
-      - -c
-      - |
-        /opt/spark/sbin/start-master.sh
-        /opt/spark/sbin/start-worker.sh spark://spark:7077
-        tail -f /dev/null
-    environment:
-      - PYSPARK_PYTHON=/usr/bin/python3
-      - PYSPARK_DRIVER_PYTHON=/usr/bin/python3
-    restart: always
+
   airflow-apiserver:
     <<: *airflow-common
     command: api-server
@@ -148,6 +114,41 @@ services:
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
     user: "0:0"
+  redis:
+    image: redis:7.2-bookworm
+    expose:
+      - 6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
+    restart: always
+  spark:
+    build:
+      context: .
+      dockerfile: dockerfiles/spark.Dockerfile
+    container_name: spark
+    hostname: spark
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+    volumes:
+      - ./spark/jobs:/opt/spark/jobs
+      - ./src/pipelines:/opt/spark/jobs
+      - ./jars:/opt/spark/extra_jars
+    command:
+      - /bin/bash
+      - -c
+      - |
+        /opt/spark/sbin/start-master.sh
+        /opt/spark/sbin/start-worker.sh spark://spark:7077
+        tail -f /dev/null
+    environment:
+      - PYSPARK_PYTHON=/usr/bin/python3
+      - PYSPARK_DRIVER_PYTHON=/usr/bin/python3
+    restart: always
   postgres:
     image: postgres:16
     ports:
@@ -230,6 +231,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: "Mk3O5EVhSuDWdMuTrZM45A" # Static generated UUID for local dev KRaft
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:

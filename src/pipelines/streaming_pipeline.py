@@ -56,6 +56,7 @@ def create_tables(t_env: TableEnvironment) -> None:
             reorder_threshold INT,
             updated_at BIGINT,
             updated_ts AS CAST(TO_TIMESTAMP_LTZ(updated_at / 1000, 3) AS TIMESTAMP(3)),
+            WATERMARK FOR updated_ts AS updated_ts - INTERVAL '5' SECOND,
             PRIMARY KEY (sku_id) NOT ENFORCED
         ) WITH (
             'connector' = 'kafka',

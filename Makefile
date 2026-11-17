@@ -9,7 +9,7 @@ run_g:
 	python -m src.pipelines.gold_pipeline
 
 container-streaming-up:
-	docker compose up -d postgres kafka debezium flink-jobmanager flink-taskmanager
+	docker compose up -d postgres kafka debezium flink-jobmanager flink-taskmanager redis
 submit_flink:
 	python -m src.pipelines.flink
 generate_streaming_data:
