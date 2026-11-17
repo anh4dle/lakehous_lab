@@ -1,6 +1,10 @@
 ## Lakehouse Lab:
 - A containerized data lakehouse built with Apache Spark, Apache Iceberg, MinIO (S3-compatible storage), Apache Airflow, and Pandera data contracts. This repository serves as a template and Proof-of-Concept (POC) for data engineering pipelines following the Medallion architecture pattern.
 
+## Architecture:
+![Screenshot of the app](./architecture.png)
+
+
 ## Medallion Layers:
 - Bronze Layer: Ingests raw JSON payloads from MinIO partitioned by date (dt=YYYY-MM-DD).
 - Silver Layer: Flattens structs, cleans data types, enforces business-level domain rules via Pandera contracts, and performs idempotent upserts.

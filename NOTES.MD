@@ -45,3 +45,20 @@ docker exec -it kafka /opt/kafka/bin/kafka-console-consumer.sh \
     --topic pg_server.public.sku_inventory \
     --from-beginning \
     --max-messages 1
+
+# Postgres connector for Debezium
+{
+  "name": "postgres-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "airflow",
+    "database.password": "airflow",
+    "database.dbname": "airflow",
+    "topic.prefix": "pg_server",
+    "table.include.list": "public.sku_inventory"
+  }
+}
